@@ -3,6 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.VisualScripting;
+using UnityEditor.Experimental.GraphView;
+
+
 
 //using System.Numerics;
 using UnityEngine;
@@ -15,7 +18,6 @@ public class Player : MonoBehaviour
     private Rigidbody rb;
 
     private Animator animator;
-    private CharacterController characterController;
 
     public CapsuleCollider Capsule { get; private set; }
 
@@ -40,49 +42,40 @@ public class Player : MonoBehaviour
     private Vector3 fp;   //First touch position
     private Vector3 lp;   //Last touch position
     private float dragDistance;  //minimum distance for a swipe to be registered
- 
+
     [SerializeField] private float groundCheckDistance;
     [SerializeField] private float ceillingCheckDistance;
     [SerializeField] private LayerMask whatIsGround;
     [SerializeField] private Transform wallCheck;
     [SerializeField] private Vector2 wallCheckSize;
     [SerializeField] private float gravityScale;
-     Vector3 endPosition;
+    Vector3 endPosition;
     private float globalGravity = -9.81f;
-    private float horizontalInput=1f;
+    private float horizontalInput = 1f;
     private Vector2 velocity;
     float velocityXSmoothing;
     public float accelerationTimeAirborne = .2f;
     public float accelerationTimeGroundedRun = .3f;
     public float accelerationTimeGroundedSliding = 1f;
 
-    private bool bApplyGravity =true;
-    [Header("LEDGE CLIMB")]
+    private bool bApplyGravity = true;
     private bool bLedgeClimb;
-   [HideInInspector] public bool bLedgeDetected;
-    [SerializeField] private Vector2 offset1; // offset for position before climb
-    [SerializeField] private Vector2 offset2; // offset for position AFTER climb
-
-    private Vector2 climbBegunPosition;
-    private Vector2 climbOverPosition;
-
-    private bool canGrabLedge = true;
 
     private bool bCanDoubleJump;
 
     [Header("SLIDING")]
-    [SerializeField]private float slideSpeed;
-   [SerializeField] private float slideTime;
-   [SerializeField]private float slideCooldown;
-   [SerializeField]private float slidingCapsultHeight=0.8f;
+    [SerializeField] private float slideSpeed;
+    [SerializeField] private float slideTime;
+    [SerializeField] private float slideCooldown;
+    [SerializeField] private float slidingCapsultHeight = 0.8f;
     private bool bIsSliding;
     private float slideTimeCounter;
     private float slideCooldownCounter;
-    
+
     [Header("ROPE")]
     public LayerMask WhatIsRope;
     RopePoint lastRopePointObj;
-    [SerializeField]private float ropeCheckRadius = 6;
+    [SerializeField] private float ropeCheckRadius = 6;
     [Tooltip("draw rope offset")]
     [SerializeField] private Vector2 grabOffset = new Vector2(0, 1.6f);
     LineRenderer ropeRenderer;
@@ -103,13 +96,13 @@ public class Player : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         animator = GetComponent<Animator>();
         transform.position = new Vector3(transform.position.x, transform.position.y, 0);
-      //  characterController = GetComponent<CharacterController>();
-        Capsule=GetComponent<CapsuleCollider>();
+        Capsule = GetComponent<CapsuleCollider>();
         dragDistance = Screen.height * 15 / 100; //dragDistance is 15% height of the screen
         rb.useGravity = false;
         ropeRenderer = GetComponent<LineRenderer>();
         originalCharCenterY = Capsule.center.y;
-        originalCharHeight =Capsule.height;
+        originalCharHeight = Capsule.height;
+
     }
 
     // Update is called once per frame
@@ -135,107 +128,107 @@ public class Player : MonoBehaviour
         }
         else
         {
-           // slideTimeCounter -= Time.deltaTime;
+            // slideTimeCounter -= Time.deltaTime;
             slideCooldownCounter -= Time.deltaTime;
             CheckCollision();
-            //rb.velocity = new Vector2(bIsSliding?slideSpeed:moveSpeed ,rb.velocity.y);
             HandleMovement();
-            CheckForLedge();
-        
+
+            if (climbingState == ClimbingState.None && bIsGrounded) CheckLowerLedge();
+            if (climbingState == ClimbingState.None && !bIsGrounded) CheckLedge();
+
         }
 
         if (bIsGrounded)
         {
-           // Time.timeScale = 1;
             bCanDoubleJump = true;
         }
         else CheckRopeInZone(); //Only check for rope point when in air
-        
+
         UpdateAnimatorValues();
         CheckForSlideCancel();
         ropeRenderer.enabled = bIsGrabingRope;
-        
+
         PollInput();
     }
     void FixedUpdate()
     {
-        if(bApplyGravity)
+        if (rb && bApplyGravity)
         {
-        Vector3 gravity = globalGravity * gravityScale * Vector3.up;
-        rb.AddForce(gravity, ForceMode.Acceleration);
+            Vector3 gravity = globalGravity * gravityScale * Vector3.up;
+            rb.AddForce(gravity, ForceMode.Acceleration);
         }
-      
+        var finalPos = new Vector3(transform.position.x, transform.position.y, 0);
+        transform.position = finalPos;    //keep the player stay 0 on Z axis
     }
     void UpdateAnimatorValues()
     {
-        animator.SetFloat("xVel" ,rb.velocity.x);
-        animator.SetFloat("yVel" ,rb.velocity.y);
-        animator.SetBool("bIsGrounded" ,bIsGrounded);
-        animator.SetBool("bLedgeClimb" ,bLedgeClimb);
+        animator.SetFloat("xVel", rb.velocity.x);
+        animator.SetFloat("yVel", rb.velocity.y);
+        animator.SetBool("bIsGrounded", bIsGrounded);
         animator.SetBool("bCanDoubleJump", bCanDoubleJump);
         animator.SetBool("bIsSliding", bIsSliding);
         animator.SetBool("bIsGrabingRope", bIsGrabingRope);
-        animator.SetBool("bCanRoll", velocity.y < -20);
-        animator.SetBool("bWallHit", bWallDetected);
+        animator.SetBool("bCanRoll", (rb ? rb.velocity.y : velocity.y) < -20);
+
+        // animator.SetBool("bWallHit", bWallDetected);
     }
 
     void PollInput()
     {
-        #if UNITY_EDITOR
-            KeyboardControls();
-        #endif
+#if UNITY_EDITOR
+        KeyboardControls();
+#endif
         SwipeControls();
     }
     void HandleMovement()
     {
-        if(bWallDetected)
+        /*
+        if (bWallDetected )
         {
-            rb.velocity=new Vector3(0,0);
-            animator.applyRootMotion =true;
+            if (rb) rb.velocity = new Vector3(0, 0);
+            else
+            {
+                velocity = new Vector2(0, 0);
+                characterController.Move(velocity * Time.deltaTime);
+            }
+
+            animator.applyRootMotion = true;
             HandleDeath();
             return;
-        }
-
+        }*/
+        if (climbingState == ClimbingState.ClimbingLedge) return;
         transform.forward = new Vector3(horizontalInput, 0, 0);
-         float targetVelocityX = bIsSliding?slideSpeed:moveSpeed * horizontalInput;
-          velocity.x = Mathf.SmoothDamp(velocity.x, targetVelocityX, ref velocityXSmoothing, bIsGrounded ? (bIsSliding == false ? accelerationTimeGroundedRun : accelerationTimeGroundedSliding) : accelerationTimeAirborne);
-           velocity.y = rb.velocity.y;
-           // if (bIsGrounded && velocity.y < 0)
-             //{
-               // velocity.y = 0f;
-           //  }
-            // else
-           //  velocity.y += -9.81f*gravityScale * Time.deltaTime;     //add gravity
-            
-        Vector2 finalVelocity = velocity;
-       // characterController.Move(finalVelocity * Time.deltaTime);
-        rb.velocity = finalVelocity;
+        float targetVelocityX = bIsSliding ? slideSpeed : moveSpeed * horizontalInput;
+        if (bLedgeClimb) targetVelocityX = 0;
+        velocity.x = Mathf.SmoothDamp(velocity.x, targetVelocityX, ref velocityXSmoothing, bIsGrounded ? (bIsSliding == false ? accelerationTimeGroundedRun : accelerationTimeGroundedSliding) : accelerationTimeAirborne);
+
+        if (rb) velocity.y = rb.velocity.y;
+        rb.velocity = velocity;
 
     }
     void Flip()
     {
         horizontalInput *= -1;
     }
-   void HandleDeath()
-   {
-     Time.timeScale = 0.1f;
-     
-   }
+    void HandleDeath()
+    {
+        Time.timeScale = 0.1f;
 
+    }
+    RaycastHit groundHit;
     void CheckCollision()
     {
-         RaycastHit hit;
-        bIsGrounded = Physics.Raycast(transform.position+ Vector3.up * 1, Vector3.down, groundCheckDistance, whatIsGround);
-        Debug.DrawLine(transform.position+ Vector3.up * 1,transform.position+ Vector3.up * 1+Vector3.down*groundCheckDistance ,Color.red ,0.25f);
+        RaycastHit hit;
+        bIsGrounded = Physics.SphereCast(transform.position + Vector3.up * 1, Capsule.radius * 0.9f, Vector3.down, out groundHit, 1f, whatIsGround);
+
         bCeillingDetected = Physics.Raycast(transform.position, Vector2.up, ceillingCheckDistance, whatIsGround);
-       // bWallDetected = Physics.BoxCast(wallCheck.position, wallCheckSize,  Vector3.forward,Quaternion.identity, 10, whatIsGround);
-        bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (Capsule.height - Capsule.radius),
-           Capsule.radius,
-           horizontalInput > 0 ? Vector3.right : Vector3.left,
-           out hit, 0.1f,whatIsGround);
-        Debug.Log(bWallDetected);
+        // bWallDetected = Physics.BoxCast(wallCheck.position, wallCheckSize,  Vector3.forward,Quaternion.identity, 10, whatIsGround);
+        /* bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (Capsule.height - Capsule.radius),
+            Capsule.radius,
+            horizontalInput > 0 ? Vector3.right : Vector3.left,
+            out hit, 0.1f, whatIsGround);*/
     }
-     private void CheckForSlideCancel()
+    private void CheckForSlideCancel()
     {
         if (slideTimeCounter < 0 && !bCeillingDetected)
             bIsSliding = false;
@@ -257,7 +250,7 @@ public class Player : MonoBehaviour
             else if (touch.phase == TouchPhase.Ended) //check if the finger is removed from the screen
             {
                 lp = touch.position;  //last touch position. Ommitted if you use list
- 
+
                 //Check if drag distance is greater than 20% of the screen height
                 if (Mathf.Abs(lp.x - fp.x) > dragDistance || Mathf.Abs(lp.y - fp.y) > dragDistance)
                 {//It's a drag
@@ -278,12 +271,18 @@ public class Player : MonoBehaviour
                         if (lp.y > fp.y)  //If the movement was up
                         {   //Up swipe
                             Debug.Log("Up Swipe");
-                            if(bIsGrounded)
+                            if (bIsGrounded)
                                 Jump(jumpForce);
+                            else if (bCanDoubleJump)
+                            {
+                                bCanDoubleJump = false;
+                                Jump(doubleJumpForce);
+                            }
                         }
                         else
                         {   //Down swipe
                             Debug.Log("Down Swipe");
+                            OnSlideStart();
                         }
                     }
                 }
@@ -297,7 +296,7 @@ public class Player : MonoBehaviour
     void KeyboardControls()
     {
 
-         if (currentAvailableRope != null)
+        if (currentAvailableRope != null)
         {
             if (Input.GetMouseButtonDown(0))
                 GrabRope();
@@ -305,8 +304,8 @@ public class Player : MonoBehaviour
             if (Input.GetMouseButtonUp(0))
                 GrabRelease();
         }
-        
-        if(Input.GetKeyDown(KeyCode.Space))
+
+        if (Input.GetKeyDown(KeyCode.Space))
         {
             if (bIsGrounded)
                 Jump(jumpForce);
@@ -319,30 +318,32 @@ public class Player : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.S))
         {
-            if (rb.velocity.x != 0 && slideCooldownCounter < 0)
-            {
-              OnSlideStart();
-              Invoke("OnSlideEnd", slideTime);
-            }
+            OnSlideStart();
         }
     }
-    void Jump(float force)
+    void Jump(float force = -1)
     {
-    rb.velocity = new Vector2(rb.velocity.x, force);
+        if (climbingState == ClimbingState.ClimbingLedge)      //stop move when climbing
+            return;
+        if (rb)
+            rb.velocity = new Vector2(rb.velocity.x, force);
+
     }
     void OnSlideStart()
     {
+        if (rb.velocity.x == 0 || slideCooldownCounter > 0) return;
+        Invoke("OnSlideEnd", slideTime);
         //  dustFx.Play();
         bIsSliding = true;
         slideTimeCounter = slideTime;
         slideCooldownCounter = slideCooldown;
-        
-        // characterController.height = slidingCapsultHeight;
+
+
         Capsule.height = slidingCapsultHeight;
-        //var _center = characterController.center;
+
         var _center = Capsule.center;
         _center.y = slidingCapsultHeight * 0.5f;
-        // characterController.center = _center;
+
         Capsule.center = _center;
     }
 
@@ -351,78 +352,147 @@ public class Player : MonoBehaviour
         if (!bIsSliding)
             return;
 
-        //characterController.height = originalCharHeight;
         Capsule.height = originalCharHeight;
-        // var _center = characterController.center;
         var _center = Capsule.center;
         _center.y = originalCharCenterY;
-        // characterController.center = _center;
         Capsule.center = _center;
         bIsSliding = false;
     }
-    public void StartVault(Vector3 vaultPosition)
-    {
-        if (bIsVaulting) return;
-            bIsVaulting = true;
-            bApplyGravity=false;
-         // Trigger the vault animation
-        animator.SetTrigger("Vault");
-        // Calculate the end position based on the vault distance
-        endPosition = vaultPosition + Vector3.right *2f;
-       //characterController.enabled = false;
-       animator.applyRootMotion = true;
-       Capsule.isTrigger=true;
-
-    
-    }
 
 
-    private void VaultOver()
+    public enum ClimbingState { None, ClimbingLedge }
+    [Header("LEDGE CLIMB")]
+    public ClimbingState climbingState;
+    [Tooltip("Ofsset from ledge to set character position")]
+    public Vector3 climbOffsetPos = new Vector3(0, 1.3f, 0);
+    [Tooltip("Adjust to fit with the climbing animation length")]
+    public float climbingLedgeTime = 1;
+    public Transform verticalChecker;
+    public float verticalCheckDistance = 0.5f;
+
+    [Header("---CHECK LOW CLIMB 1m---")]
+    [Tooltip("Ofsset from ledge to set character position")]
+    public Vector3 climbLCOffsetPos = new Vector3(0, 1f, 0);
+    public float climbingLBObjTime = 1;
+    Transform ledgeTarget;      //use to update ledge moving/rotating
+    Vector3 ledgePoint;
+    bool CheckLowerLedge()      //check lower ledge
     {
-        Debug.Log("VaultOver");
-        transform.position = endPosition;
-        //  characterController.enabled = true;
-        animator.applyRootMotion = false;
-        bIsVaulting = false;
-        bApplyGravity = true;
-        Capsule.isTrigger = false;
-    }
-    private void CheckForLedge()
-    {
-        if (bLedgeDetected && canGrabLedge)
+        RaycastHit hitVertical;
+        RaycastHit hitGround;
+        RaycastHit hitHorizontal;
+
+        //Debug.DrawRay(verticalChecker.position, Vector3.down * verticalCheckDistance);
+        if (Physics.Linecast(verticalChecker.position, new Vector3(verticalChecker.position.x, transform.position.y + 0.3f, transform.position.z), out hitVertical, whatIsGround, QueryTriggerInteraction.Ignore))
         {
-            canGrabLedge = false;
-            bApplyGravity = false;
+            if (hitVertical.normal == Vector3.up)
+            {
+                //Debug.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), (horizontalInput > 0 ? Vector3.right : Vector3.left) * 2);
+                if (Physics.Raycast(new Vector3(transform.position.x, hitVertical.point.y, verticalChecker.position.z), Vector3.down, out hitGround, 3, whatIsGround, QueryTriggerInteraction.Ignore))
+                {
+                    if ((int)hitGround.distance <= 1)
+                    {
+                        if (Physics.Raycast(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), horizontalInput > 0 ? Vector3.right : Vector3.left, out hitHorizontal, 2, whatIsGround, QueryTriggerInteraction.Ignore))
+                        {
+                            ledgeTarget = hitVertical.transform;
+                            ledgePoint = new Vector3(hitHorizontal.point.x, hitVertical.point.y, transform.position.z);
+                            velocity = Vector2.zero;
 
-            Vector2 ledgePosition = GetComponentInChildren<LedgeDetector>().transform.position;
+                            rb.velocity = velocity;
+                            transform.position = CalculatePositionOnLedge(climbOffsetPos);
+                            //reset other value
+                            //isWallSliding = false;
+                            if (bIsSliding)
+                                OnSlideEnd();
 
-            climbBegunPosition = ledgePosition + offset1;
-            climbOverPosition = ledgePosition + offset2;
-
-            bLedgeClimb = true;
+                            StartCoroutine(ClimbingLedgeCo(true));
+                            return true;
+                        }
+                    }
+                }
+            }
         }
-
-        if (bLedgeClimb)
-            transform.position = climbBegunPosition;
+        return false;
     }
-    private void LedgeClimbOver()
+
+    RaycastHit hitVertical;
+    RaycastHit hitHorizontal;
+    bool CheckLedge()       //check higher ledge
     {
 
-        bLedgeClimb=false;
-        bApplyGravity = true;
-        transform.position = climbOverPosition;
-        Invoke("AllowLedgeGrab", .1f);
+        Debug.DrawRay(verticalChecker.position, Vector3.down * verticalCheckDistance, Color.red);
+        if (Physics.Raycast(verticalChecker.position, Vector2.down, out hitVertical, verticalCheckDistance, whatIsGround, QueryTriggerInteraction.Ignore))
+        {
+
+            Debug.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), (horizontalInput > 0 ? Vector3.right : Vector3.left) * 2);
+            if (Physics.Raycast(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), horizontalInput > 0 ? Vector3.right : Vector3.left, out hitHorizontal, 2, whatIsGround, QueryTriggerInteraction.Ignore))
+            {
+
+                ledgeTarget = hitVertical.transform;
+                ledgePoint = new Vector3(hitHorizontal.point.x, hitVertical.point.y, transform.position.z);
+                velocity = Vector2.zero;
+                rb.velocity = velocity;
+                transform.position = CalculatePositionOnLedge(climbOffsetPos);
+                //reset other value
+                //   isWallSliding = false;
+                if (bIsSliding)
+                    OnSlideEnd();
+
+                StartCoroutine(ClimbingLedgeCo(false));
+                return true;
+            }
+        }
+        return false;
     }
-    private void AllowLedgeGrab() => canGrabLedge = true;
+    private Vector3 CalculatePositionOnLedge(Vector3 offset)
+    {
+        Vector3 newPos = new Vector3(ledgePoint.x - (Capsule.radius * (horizontalInput > 0 ? 1 : -1)) - offset.x, ledgePoint.y - offset.y, transform.position.z);
 
+        return newPos;
+    }
 
+    IEnumerator ClimbingLedgeCo(bool lowClimb)
+    {
+        //Debug.Log("LedgeCimb");
+        climbingState = ClimbingState.ClimbingLedge;
+        if (lowClimb)
+            animator.SetBool("bLowLedgeClimb", true);
+        else
+            animator.SetBool("bLedgeClimb", true);
+
+        // UpdateAnimatorValues();
+
+        yield return new WaitForSeconds(Time.deltaTime);
+        Capsule.enabled = false;
+        rb.isKinematic = true;
+        bApplyGravity = false;
+        animator.applyRootMotion = true;
+        transform.position = CalculatePositionOnLedge(lowClimb ? climbLCOffsetPos : climbOffsetPos);
+        yield return new WaitForSeconds(Time.deltaTime);
+        transform.position = CalculatePositionOnLedge(lowClimb ? climbLCOffsetPos : climbOffsetPos);
+
+        yield return new WaitForSeconds(lowClimb ? climbingLBObjTime : climbingLedgeTime);
+        LedgeReset();
+    }
+
+    void LedgeReset()
+    {
+        Capsule.enabled = true;
+        animator.applyRootMotion = false;
+        rb.isKinematic = false;
+        bApplyGravity = true;
+        climbingState = ClimbingState.None;
+        animator.SetBool("bLedgeClimb", false);
+        animator.SetBool("bLowLedgeClimb", false);
+        ledgeTarget = null;
+    }
     void CheckRopeInZone()
     {
         if (bIsGrabingRope)
             return;
 
         var hits = Physics.OverlapSphere(transform.position + Vector3.up * Capsule.height * 0.5f, ropeCheckRadius, WhatIsRope);
-        
+
         if (hits.Length > 0)
         {
             for (int i = 0; i < hits.Length; i++)
@@ -436,7 +506,8 @@ public class Player : MonoBehaviour
                         {
                             if (currentAvailableRope.slowMotion)
                                 Time.timeScale = 0.1f;
-                        }else
+                        }
+                        else
                             currentAvailableRope = null;
                     }
                     else
@@ -450,7 +521,7 @@ public class Player : MonoBehaviour
                         if (lastRopePointObj != currentAvailableRope)
                         {
                             if (currentAvailableRope.slowMotion)
-                            Time.timeScale = 0.1f;
+                                Time.timeScale = 0.1f;
                         }
                         else
                             currentAvailableRope = null;
@@ -472,25 +543,29 @@ public class Player : MonoBehaviour
         }
     }
 
-     public void GrabRope()
+    public void GrabRope()
     {
         if (bIsGrabingRope)
             return;
 
         if (bIsGrounded)
             return;     //don't allow grab rope when standing on ground
-        bApplyGravity =false;
-        rb.isKinematic =true;
+        if (rb)
+        {
+            bApplyGravity = false;
+            rb.isKinematic = true;
+        }
+
         if (lastRopePointObj != currentAvailableRope)
         {
-            
+
             if (currentAvailableRope.slowMotion)
                 Time.timeScale = 1;
 
             lastRopePointObj = currentAvailableRope;
             bIsGrabingRope = true;
-           // SoundManager.PlaySfx(soundGrap);
-           float distance = Vector2.Distance(transform.position, currentAvailableRope.transform.position);
+            // SoundManager.PlaySfx(soundGrap);
+            float distance = Vector2.Distance(transform.position, currentAvailableRope.transform.position);
             releasePointY = currentAvailableRope.transform.position.y - distance / 10f;
         }
     }
@@ -499,25 +574,27 @@ public class Player : MonoBehaviour
     {
         if (!bIsGrabingRope)
             return;
-        bApplyGravity =true;
-        rb.isKinematic =false;
-        bCanDoubleJump =false;
-       // currentAvailableRope =null;
-      //  velocity = releaseForce * transform.forward;
-        rb.velocity =releaseForce * transform.forward;
-       // characterController.Move(velocity * Time.deltaTime);
-        rb.AddForce(rb.velocity, ForceMode.Acceleration);
+        bCanDoubleJump = false;
+        if (rb)
+        {
+            bApplyGravity = true;
+            rb.isKinematic = false;
+            rb.velocity = releaseForce * transform.forward;
+            rb.AddForce(rb.velocity, ForceMode.Acceleration);
+        }
+
+
         Time.timeScale = 1;
-      //  SoundManager.PlaySfx(soundRopeJump);
+        //  SoundManager.PlaySfx(soundRopeJump);
         bIsGrabingRope = false;
     }
 
- private void OnDrawGizmos()
+    private void OnDrawGizmos()
     {
-       // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y - groundCheckDistance));
-       // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y + ceillingCheckDistance));
+        // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y - groundCheckDistance));
+        // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y + ceillingCheckDistance));
         Gizmos.DrawWireCube(wallCheck.position, wallCheckSize);
-    
+        // Gizmos.DrawSphere(transform.position + Vector3.up * 1, Capsule.radius * 0.9f);
     }
 
 }

@@ -11,7 +11,7 @@ public class VaultTrigger : MonoBehaviour
     
             if (Player.instance != null)
             {
-                Player.instance.StartVault(transform.position);
+               // Player.instance.StartVault(transform.position);
             }
         }
     }
