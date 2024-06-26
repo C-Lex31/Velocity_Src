@@ -10,30 +10,34 @@ using UnityEditor.Experimental.GraphView;
 //using System.Numerics;
 using UnityEngine;
 
-public class Player : MonoBehaviour
+public class Player_CC : MonoBehaviour
 {
     public float moveSpeed;
     public float jumpForce;
     public float doubleJumpForce;
-    private Rigidbody rb;
+    // private Rigidbody rb;
 
     private Animator animator;
 
-    public CapsuleCollider Capsule { get; private set; }
+    //public CapsuleCollider Capsule { get; private set; }
+    private CharacterController cc;
 
-    private static Player _instance;
-    public static Player instance
+    private static Player_CC _instance;
+    public static Player_CC instance
     {
         get
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<Player>();
+                _instance = FindObjectOfType<Player_CC>();
             }
 
             return _instance;
         }
     }
+
+    public bool bFlatlined { get; private set; }
+    public float GroundedOffset ;
 
     private bool bIsGrounded;
     private bool bCeillingDetected;
@@ -49,6 +53,9 @@ public class Player : MonoBehaviour
     [SerializeField] private Transform wallCheck;
     [SerializeField] private Vector2 wallCheckSize;
     [SerializeField] private float gravityScale;
+    [SerializeField] private RagdollController ragdoll;
+    private float lowCheckOffset = 4;
+    private float highCheckOffset = 1;
     Vector3 endPosition;
     private float globalGravity = -9.81f;
     private float horizontalInput = 1f;
@@ -87,27 +94,29 @@ public class Player : MonoBehaviour
     [ReadOnly] public RopePoint currentAvailableRope;
     private float originalCharCenterY, originalCharHeight;
 
-
+    private float gravityModifier = 1;
 
 
     // Start is called before the first frame update
     void Start()
     {
-        rb = GetComponent<Rigidbody>();
+
+        cc = GetComponent<CharacterController>();
         animator = GetComponent<Animator>();
         transform.position = new Vector3(transform.position.x, transform.position.y, 0);
-        Capsule = GetComponent<CapsuleCollider>();
+
         dragDistance = Screen.height * 15 / 100; //dragDistance is 15% height of the screen
-        rb.useGravity = false;
+
         ropeRenderer = GetComponent<LineRenderer>();
-        originalCharCenterY = Capsule.center.y;
-        originalCharHeight = Capsule.height;
+        originalCharCenterY = cc.center.y;
+        originalCharHeight = cc.height;
 
     }
 
     // Update is called once per frame
     void Update()
     {
+        if (bFlatlined) return;
         if (bIsGrabingRope && !bIsGrounded)
         {
             transform.RotateAround(currentAvailableRope.transform.position, rotateAxis, horizontalInput * ropeSpeed * Time.deltaTime);
@@ -134,13 +143,15 @@ public class Player : MonoBehaviour
             HandleMovement();
 
             if (climbingState == ClimbingState.None && bIsGrounded) CheckLowerLedge();
-            if (climbingState == ClimbingState.None && !bIsGrounded) CheckLedge();
+            if (climbingState == ClimbingState.None && cc.velocity.y < 0)
+                CheckLedge();
 
         }
 
         if (bIsGrounded)
         {
             bCanDoubleJump = true;
+            gravityModifier = 1;
         }
         else CheckRopeInZone(); //Only check for rope point when in air
 
@@ -152,25 +163,22 @@ public class Player : MonoBehaviour
     }
     void FixedUpdate()
     {
-        if (rb && bApplyGravity)
-        {
-            Vector3 gravity = globalGravity * gravityScale * Vector3.up;
-            rb.AddForce(gravity, ForceMode.Acceleration);
-        }
+      
         var finalPos = new Vector3(transform.position.x, transform.position.y, 0);
         transform.position = finalPos;    //keep the player stay 0 on Z axis
     }
     void UpdateAnimatorValues()
     {
-        animator.SetFloat("xVel", rb.velocity.x);
-        animator.SetFloat("yVel", rb.velocity.y);
+        animator.SetFloat("xVel", cc.velocity.x);
+        animator.SetFloat("yVel", cc.velocity.y);
         animator.SetBool("bIsGrounded", bIsGrounded);
         animator.SetBool("bCanDoubleJump", bCanDoubleJump);
         animator.SetBool("bIsSliding", bIsSliding);
         animator.SetBool("bIsGrabingRope", bIsGrabingRope);
-        animator.SetBool("bCanRoll", (rb ? rb.velocity.y : velocity.y) < -20);
 
-        // animator.SetBool("bWallHit", bWallDetected);
+        animator.SetBool("bWallHit", bWallDetected);
+        if (cc.velocity.y < -20)
+            animator.SetBool("bCanRoll", true);
     }
 
     void PollInput()
@@ -182,29 +190,30 @@ public class Player : MonoBehaviour
     }
     void HandleMovement()
     {
-        /*
-        if (bWallDetected )
-        {
-            if (rb) rb.velocity = new Vector3(0, 0);
-            else
-            {
-                velocity = new Vector2(0, 0);
-                characterController.Move(velocity * Time.deltaTime);
-            }
 
-            animator.applyRootMotion = true;
+        if (bWallDetected && climbingState == ClimbingState.None && !bFlatlined)
+        {
+  
+            cc.Move(new Vector2(0,0));
             HandleDeath();
             return;
-        }*/
+        }
         if (climbingState == ClimbingState.ClimbingLedge) return;
         transform.forward = new Vector3(horizontalInput, 0, 0);
         float targetVelocityX = bIsSliding ? slideSpeed : moveSpeed * horizontalInput;
-        if (bLedgeClimb) targetVelocityX = 0;
+        //  if (bLedgeClimb) targetVelocityX = 0;
         velocity.x = Mathf.SmoothDamp(velocity.x, targetVelocityX, ref velocityXSmoothing, bIsGrounded ? (bIsSliding == false ? accelerationTimeGroundedRun : accelerationTimeGroundedSliding) : accelerationTimeAirborne);
 
-        if (rb) velocity.y = rb.velocity.y;
-        rb.velocity = velocity;
+        if (bIsGrounded && velocity.y < 0)
+        {
+            velocity.y = 0;
+            lastRopePointObj = null;
+        }
+        else
+            velocity.y += globalGravity*gravityScale * Time.deltaTime;     //add gravity
 
+             Vector2 finalVelocity = velocity;
+              cc.Move(finalVelocity * Time.deltaTime);
     }
     void Flip()
     {
@@ -212,21 +221,43 @@ public class Player : MonoBehaviour
     }
     void HandleDeath()
     {
-        Time.timeScale = 0.1f;
-
+        //Time.timeScale = 0.1f;
+     //   ragdoll.RagdollStart();
+        PlayManager.instance.GameOver();
+        bFlatlined = true;
     }
     RaycastHit groundHit;
+
     void CheckCollision()
     {
+          //if (velocity.y > 0.1f)
+            //return;
         RaycastHit hit;
-        bIsGrounded = Physics.SphereCast(transform.position + Vector3.up * 1, Capsule.radius * 0.9f, Vector3.down, out groundHit, 1f, whatIsGround);
+       // if(Physics.SphereCast(transform.position + Vector3.up * 1, cc.radius *0.9f, Vector3.down, out groundHit, 1f, whatIsGround))
+       // {
+          //  float distance = transform.position.y - groundHit.point.y;
+             //bIsGrounded = distance <= (cc.skinWidth + 0.01f);
+              // Debug.Log(distance);
+        //}
+         Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - GroundedOffset,
+                transform.position.z);
+            bIsGrounded = Physics.CheckSphere(spherePosition,cc.radius *0.9f, whatIsGround,
+                QueryTriggerInteraction.Ignore);
 
-        bCeillingDetected = Physics.Raycast(transform.position, Vector2.up, ceillingCheckDistance, whatIsGround);
-        // bWallDetected = Physics.BoxCast(wallCheck.position, wallCheckSize,  Vector3.forward,Quaternion.identity, 10, whatIsGround);
-        /* bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (Capsule.height - Capsule.radius),
-            Capsule.radius,
-            horizontalInput > 0 ? Vector3.right : Vector3.left,
-            out hit, 0.1f, whatIsGround);*/
+      //  bCeillingDetected = Physics.Raycast(transform.position, Vector2.up, ceillingCheckDistance, whatIsGround);
+       // bWallDetected = Physics.BoxCast(wallCheck.position, wallCheckSize, Vector3.forward, Quaternion.identity, 10, whatIsGround);
+        /*
+                bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (Capsule.height - Capsule.radius),
+                   Capsule.radius,
+                   horizontalInput > 0 ? Vector3.right : Vector3.left,
+                   out hit, 0.1f, whatIsGround);*/
+
+        if (Physics.SphereCast(transform.position + Vector3.up * (cc.height / lowCheckOffset), 0.25f, Vector3.right, out hit, 0.3f, whatIsGround))
+
+
+            bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (cc.height * highCheckOffset), 0.25f, Vector3.right, out hit, 0.3f, whatIsGround);
+
+
     }
     private void CheckForSlideCancel()
     {
@@ -307,6 +338,7 @@ public class Player : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Space))
         {
+            RollEnd();
             if (bIsGrounded)
                 Jump(jumpForce);
             else if (bCanDoubleJump)
@@ -318,20 +350,30 @@ public class Player : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.S))
         {
-            OnSlideStart();
+            if (bIsGrounded)
+                OnSlideStart();
+            else
+            if (cc.velocity.y < 0)
+                CancelJump();
         }
     }
     void Jump(float force = -1)
     {
         if (climbingState == ClimbingState.ClimbingLedge)      //stop move when climbing
             return;
-        if (rb)
-            rb.velocity = new Vector2(rb.velocity.x, force);
+        if (bIsGrounded)
+        {
+             var _height = force != -1 ? force : jumpForce;
+            velocity.y += Mathf.Sqrt(_height * -2 * globalGravity * gravityScale);
+            velocity.x = cc.velocity.x;
+            cc.Move(velocity*Time.deltaTime);
+        }
+
 
     }
     void OnSlideStart()
     {
-        if (rb.velocity.x == 0 || slideCooldownCounter > 0) return;
+        if (cc.velocity.x == 0 || slideCooldownCounter > 0) return;
         Invoke("OnSlideEnd", slideTime);
         //  dustFx.Play();
         bIsSliding = true;
@@ -339,12 +381,12 @@ public class Player : MonoBehaviour
         slideCooldownCounter = slideCooldown;
 
 
-        Capsule.height = slidingCapsultHeight;
+        cc.height = slidingCapsultHeight;
 
-        var _center = Capsule.center;
+        var _center = cc.center;
         _center.y = slidingCapsultHeight * 0.5f;
 
-        Capsule.center = _center;
+        cc.center = _center;
     }
 
     void OnSlideEnd()
@@ -352,14 +394,20 @@ public class Player : MonoBehaviour
         if (!bIsSliding)
             return;
 
-        Capsule.height = originalCharHeight;
-        var _center = Capsule.center;
+        cc.height = originalCharHeight;
+        var _center = cc.center;
         _center.y = originalCharCenterY;
-        Capsule.center = _center;
+        cc.center = _center;
         bIsSliding = false;
     }
-
-
+    void RollEnd()
+    {
+        animator.SetBool("bCanRoll", false);
+    }
+    void CancelJump()
+    {
+        gravityModifier = 8;
+    }
     public enum ClimbingState { None, ClimbingLedge }
     [Header("LEDGE CLIMB")]
     public ClimbingState climbingState;
@@ -394,11 +442,11 @@ public class Player : MonoBehaviour
                     {
                         if (Physics.Raycast(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), horizontalInput > 0 ? Vector3.right : Vector3.left, out hitHorizontal, 2, whatIsGround, QueryTriggerInteraction.Ignore))
                         {
+
                             ledgeTarget = hitVertical.transform;
                             ledgePoint = new Vector3(hitHorizontal.point.x, hitVertical.point.y, transform.position.z);
                             velocity = Vector2.zero;
-
-                            rb.velocity = velocity;
+                            cc.Move(velocity);      
                             transform.position = CalculatePositionOnLedge(climbOffsetPos);
                             //reset other value
                             //isWallSliding = false;
@@ -427,11 +475,12 @@ public class Player : MonoBehaviour
             Debug.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), (horizontalInput > 0 ? Vector3.right : Vector3.left) * 2);
             if (Physics.Raycast(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), horizontalInput > 0 ? Vector3.right : Vector3.left, out hitHorizontal, 2, whatIsGround, QueryTriggerInteraction.Ignore))
             {
-
+                Debug.Log("Ledge");
                 ledgeTarget = hitVertical.transform;
                 ledgePoint = new Vector3(hitHorizontal.point.x, hitVertical.point.y, transform.position.z);
+                //   velocity = Vector2.zero;
                 velocity = Vector2.zero;
-                rb.velocity = velocity;
+                cc.Move(velocity);
                 transform.position = CalculatePositionOnLedge(climbOffsetPos);
                 //reset other value
                 //   isWallSliding = false;
@@ -446,13 +495,16 @@ public class Player : MonoBehaviour
     }
     private Vector3 CalculatePositionOnLedge(Vector3 offset)
     {
-        Vector3 newPos = new Vector3(ledgePoint.x - (Capsule.radius * (horizontalInput > 0 ? 1 : -1)) - offset.x, ledgePoint.y - offset.y, transform.position.z);
+        Vector3 newPos = new Vector3(ledgePoint.x - (cc.radius * (horizontalInput > 0 ? 1 : -1)) - offset.x, ledgePoint.y - offset.y, transform.position.z);
 
         return newPos;
     }
 
     IEnumerator ClimbingLedgeCo(bool lowClimb)
     {
+        cc.enabled = false;
+    
+        animator.applyRootMotion = true;
         //Debug.Log("LedgeCimb");
         climbingState = ClimbingState.ClimbingLedge;
         if (lowClimb)
@@ -460,13 +512,10 @@ public class Player : MonoBehaviour
         else
             animator.SetBool("bLedgeClimb", true);
 
-        // UpdateAnimatorValues();
+        UpdateAnimatorValues();
 
         yield return new WaitForSeconds(Time.deltaTime);
-        Capsule.enabled = false;
-        rb.isKinematic = true;
-        bApplyGravity = false;
-        animator.applyRootMotion = true;
+
         transform.position = CalculatePositionOnLedge(lowClimb ? climbLCOffsetPos : climbOffsetPos);
         yield return new WaitForSeconds(Time.deltaTime);
         transform.position = CalculatePositionOnLedge(lowClimb ? climbLCOffsetPos : climbOffsetPos);
@@ -477,10 +526,8 @@ public class Player : MonoBehaviour
 
     void LedgeReset()
     {
-        Capsule.enabled = true;
+        cc.enabled = true;
         animator.applyRootMotion = false;
-        rb.isKinematic = false;
-        bApplyGravity = true;
         climbingState = ClimbingState.None;
         animator.SetBool("bLedgeClimb", false);
         animator.SetBool("bLowLedgeClimb", false);
@@ -491,7 +538,7 @@ public class Player : MonoBehaviour
         if (bIsGrabingRope)
             return;
 
-        var hits = Physics.OverlapSphere(transform.position + Vector3.up * Capsule.height * 0.5f, ropeCheckRadius, WhatIsRope);
+        var hits = Physics.OverlapSphere(transform.position + Vector3.up * cc.height * 0.5f, ropeCheckRadius, WhatIsRope);
 
         if (hits.Length > 0)
         {
@@ -550,11 +597,9 @@ public class Player : MonoBehaviour
 
         if (bIsGrounded)
             return;     //don't allow grab rope when standing on ground
-        if (rb)
-        {
+       
+      
             bApplyGravity = false;
-            rb.isKinematic = true;
-        }
 
         if (lastRopePointObj != currentAvailableRope)
         {
@@ -575,15 +620,12 @@ public class Player : MonoBehaviour
         if (!bIsGrabingRope)
             return;
         bCanDoubleJump = false;
-        if (rb)
-        {
+        
             bApplyGravity = true;
-            rb.isKinematic = false;
-            rb.velocity = releaseForce * transform.forward;
-            rb.AddForce(rb.velocity, ForceMode.Acceleration);
-        }
+         
 
-
+        velocity = releaseForce * transform.forward;
+        cc.Move(velocity * Time.deltaTime);
         Time.timeScale = 1;
         //  SoundManager.PlaySfx(soundRopeJump);
         bIsGrabingRope = false;
@@ -592,9 +634,18 @@ public class Player : MonoBehaviour
     private void OnDrawGizmos()
     {
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y - groundCheckDistance));
+        // verticalChecker.position, Vector3.down * verticalCheckDistance, Color.red
+        Gizmos.DrawRay(verticalChecker.position, Vector3.down * verticalCheckDistance);
+        Gizmos.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), Vector3.right * 2);
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y + ceillingCheckDistance));
-        Gizmos.DrawWireCube(wallCheck.position, wallCheckSize);
-        // Gizmos.DrawSphere(transform.position + Vector3.up * 1, Capsule.radius * 0.9f);
+        // Gizmos.DrawWireCube(wallCheck.position, wallCheckSize);
+        //    Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height / 4) + Vector3.right * 0.3f, 0.25f);
+        // Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height) + Vector3.right * 0.3f, 0.25f);
+          //Gizmos.DrawWireSphere(groundHit.point, cc.radius * 0.9f);
+           Gizmos.DrawSphere(
+                new Vector3(transform.position.x, transform.position.y - GroundedOffset, transform.position.z),
+                 cc.radius * 0.9f);
+
     }
 
 }
