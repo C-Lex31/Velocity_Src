@@ -10,7 +10,7 @@ public class PopupContinue : MonoBehaviour
     public TextMeshProUGUI textScore;
     public CanvasGroup canvasGroup;
     public GameObject btnNoThanks;
-     public GameObject buttonContinue;
+    public GameObject buttonContinue;
     public GameObject popupBg;
 
     public GameObject iconAds;
@@ -26,10 +26,10 @@ public class PopupContinue : MonoBehaviour
         popupBg.transform.DOScale(0f, 0f);
 
     }
-      public void Open()
+    public void Open()
     {
         SoundManager.Instance.PlayEffect(SoundList.sound_continue_sfx_default);
-       // iconAds.SetActive(false);
+        // iconAds.SetActive(false);
 
         PlayManager.instance.bIsGameOver = true;
 
@@ -41,15 +41,15 @@ public class PopupContinue : MonoBehaviour
         popupBg.transform.DOScale(1f, 0.2f).SetEase(Ease.OutBack);
         StartCoroutine(ScoreAnimCo());
     }
-     IEnumerator ScoreAnimCo()
+    IEnumerator ScoreAnimCo()
     {
         int score = 0;
         int targetScore = GameManager.Instance.score;
-        textBest.text= GlobalGameData.BestScore.ToString();
+        textBest.text = GlobalGameData.BestScore.ToString();
         float time = 0.5f;
         DOTween.To(() => score, x => score = x, targetScore, time).SetEase(Ease.Linear);
 
-       // SoundManager.Instance.PlayEffectLoop(SoundList.sound_result_sfx_score);
+        // SoundManager.Instance.PlayEffectLoop(SoundList.sound_result_sfx_score);
 
         while (time > 0)
         {
@@ -58,13 +58,19 @@ public class PopupContinue : MonoBehaviour
             yield return null;
         }
 
-       // SoundManager.Instance.StopEffectLoop();
+        // SoundManager.Instance.StopEffectLoop();
         textScore.text = targetScore.ToString();
-        
+
         yield return new WaitForSeconds(1f);
 
         btnNoThanks.transform.DOScale(1f, 0.25f).SetEase(Ease.OutCubic);
 
 
+    }
+
+    public void Click_NoThanks()
+    {
+        GameManager.Instance.LoadScene(Data.scene_result);
+        SoundManager.Instance.StopBGM();
     }
 }

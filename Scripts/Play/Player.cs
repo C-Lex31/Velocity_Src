@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
-using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 
 
@@ -116,7 +115,7 @@ public class Player : MonoBehaviour
         if (bFlatlined) return;
         if (bIsGrabingRope && !bIsGrounded)
         {
-            transform.RotateAround(currentAvailableRope.transform.position, rotateAxis, horizontalInput * (ropeSpeed*moveSpeed )* Time.deltaTime);
+            transform.RotateAround(currentAvailableRope.transform.position, rotateAxis, horizontalInput * (ropeSpeed * moveSpeed) * Time.deltaTime);
 
 
             transform.up = currentAvailableRope.transform.position - transform.position;
@@ -140,8 +139,8 @@ public class Player : MonoBehaviour
             HandleMovement();
 
             if (climbingState == ClimbingState.None && bIsGrounded) CheckLowerLedge();
-            if (climbingState == ClimbingState.None && rb.velocity.y<0) 
-            CheckLedge();
+            if (climbingState == ClimbingState.None && rb.velocity.y < 0)
+                CheckLedge();
 
         }
 
@@ -201,7 +200,7 @@ public class Player : MonoBehaviour
         if (climbingState == ClimbingState.ClimbingLedge) return;
         transform.forward = new Vector3(horizontalInput, 0, 0);
         float targetVelocityX = bIsSliding ? slideSpeed : moveSpeed * horizontalInput;
-      //  if (bLedgeClimb) targetVelocityX = 0;
+
         velocity.x = Mathf.SmoothDamp(velocity.x, targetVelocityX, ref velocityXSmoothing, bIsGrounded ? (bIsSliding == false ? accelerationTimeGroundedRun : accelerationTimeGroundedSliding) : accelerationTimeAirborne);
 
         velocity.y = rb.velocity.y;
@@ -223,16 +222,12 @@ public class Player : MonoBehaviour
 
     void CheckCollision()
     {
+        if (climbingState == ClimbingState.ClimbingLedge) return;
         RaycastHit hit;
         bIsGrounded = Physics.SphereCast(transform.position + Vector3.up * 1, Capsule.radius * 0.9f, Vector3.down, out groundHit, 1f, whatIsGround);
 
         bCeillingDetected = Physics.Raycast(transform.position, Vector2.up, ceillingCheckDistance, whatIsGround);
         bWallDetected = Physics.BoxCast(wallCheck.position, wallCheckSize, Vector3.forward, Quaternion.identity, 10, whatIsGround);
-        /*
-                bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (Capsule.height - Capsule.radius),
-                   Capsule.radius,
-                   horizontalInput > 0 ? Vector3.right : Vector3.left,
-                   out hit, 0.1f, whatIsGround);*/
 
         if (Physics.SphereCast(transform.position + Vector3.up * (Capsule.height / lowCheckOffset), 0.25f, Vector3.right, out hit, 0.3f, whatIsGround))
 
@@ -334,7 +329,7 @@ public class Player : MonoBehaviour
             if (bIsGrounded)
                 OnSlideStart();
             else
-            if(rb.velocity.y<0)
+            if (rb.velocity.y < 0)
                 CancelJump();
         }
     }
@@ -381,7 +376,7 @@ public class Player : MonoBehaviour
     }
     void CancelJump()
     {
-        gravityModifier =8;
+        gravityModifier = 8;
     }
     public enum ClimbingState { None, ClimbingLedge }
     [Header("LEDGE CLIMB")]
@@ -417,12 +412,15 @@ public class Player : MonoBehaviour
                     {
                         if (Physics.Raycast(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), horizontalInput > 0 ? Vector3.right : Vector3.left, out hitHorizontal, 2, whatIsGround, QueryTriggerInteraction.Ignore))
                         {
-                            
+
                             ledgeTarget = hitVertical.transform;
                             ledgePoint = new Vector3(hitHorizontal.point.x, hitVertical.point.y, transform.position.z);
                             velocity = Vector2.zero;
 
                             rb.velocity = velocity;
+                            Capsule.enabled = false;
+                            rb.isKinematic = true;
+                            bApplyGravity = false;
                             transform.position = CalculatePositionOnLedge(climbOffsetPos);
                             //reset other value
                             //isWallSliding = false;
@@ -454,11 +452,11 @@ public class Player : MonoBehaviour
                 Debug.Log("Ledge");
                 ledgeTarget = hitVertical.transform;
                 ledgePoint = new Vector3(hitHorizontal.point.x, hitVertical.point.y, transform.position.z);
-             //   velocity = Vector2.zero;
+                //   velocity = Vector2.zero;
                 rb.velocity = Vector3.zero;
-                 Capsule.enabled = false;
-        rb.isKinematic = true;
-        bApplyGravity = false;
+                Capsule.enabled = false;
+                rb.isKinematic = true;
+                bApplyGravity = false;
                 transform.position = CalculatePositionOnLedge(climbOffsetPos);
                 //reset other value
                 //   isWallSliding = false;
@@ -480,7 +478,7 @@ public class Player : MonoBehaviour
 
     IEnumerator ClimbingLedgeCo(bool lowClimb)
     {
-         Capsule.enabled = false;
+        Capsule.enabled = false;
         rb.isKinematic = true;
         bApplyGravity = false;
         animator.applyRootMotion = true;
@@ -491,13 +489,13 @@ public class Player : MonoBehaviour
         else
             animator.SetBool("bLedgeClimb", true);
 
-         UpdateAnimatorValues();
+        UpdateAnimatorValues();
 
         yield return new WaitForSeconds(Time.deltaTime);
-       
+
         transform.position = CalculatePositionOnLedge(lowClimb ? climbLCOffsetPos : climbOffsetPos);
         yield return new WaitForSeconds(Time.deltaTime);
-       transform.position = CalculatePositionOnLedge(lowClimb ? climbLCOffsetPos : climbOffsetPos);
+        transform.position = CalculatePositionOnLedge(lowClimb ? climbLCOffsetPos : climbOffsetPos);
 
         yield return new WaitForSeconds(lowClimb ? climbingLBObjTime : climbingLedgeTime);
         LedgeReset();
@@ -620,9 +618,9 @@ public class Player : MonoBehaviour
     private void OnDrawGizmos()
     {
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y - groundCheckDistance));
-       // verticalChecker.position, Vector3.down * verticalCheckDistance, Color.red
-        Gizmos.DrawRay( verticalChecker.position, Vector3.down * verticalCheckDistance);
-        Gizmos.DrawRay( new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), Vector3.right * 2);
+        // verticalChecker.position, Vector3.down * verticalCheckDistance, Color.red
+        Gizmos.DrawRay(verticalChecker.position, Vector3.down * verticalCheckDistance);
+        Gizmos.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), Vector3.right * 2);
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y + ceillingCheckDistance));
         // Gizmos.DrawWireCube(wallCheck.position, wallCheckSize);
         //    Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height / 4) + Vector3.right * 0.3f, 0.25f);

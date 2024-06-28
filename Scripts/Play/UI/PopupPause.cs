@@ -24,26 +24,36 @@ public class PopupPause : MonoBehaviour
         Time.timeScale = 0;
 
 
-       // textBest.text = Utility.ChangeThousandsSeparator(GameData.BestScore);
+        // textBest.text = Utility.ChangeThousandsSeparator(GameData.BestScore);
         textBest.text = GlobalGameData.BestScore.ToString();
 
         this.gameObject.SetActive(true);
         canvasGroup.DOKill();
         canvasGroup.DOFade(1f, 0.25f).SetEase(Ease.OutCubic).SetUpdate(true);
-   
+
     }
-     public void Close () {
+    public void Close()
+    {
         if (!isOn) return;
         isOn = false;
         SoundManager.Instance.PlayEffect(SoundList.sound_common_btn_in);
 
         Time.timeScale = 1;
         canvasGroup.DOKill();
-        canvasGroup.DOFade(0f, 0.25f).SetEase(Ease.OutCubic).OnComplete(() => {
+        canvasGroup.DOFade(0f, 0.25f).SetEase(Ease.OutCubic).OnComplete(() =>
+        {
             this.gameObject.SetActive(false);
 
         }).SetUpdate(true);
     }
 
+    public void Click_Home()
+    {
+        SoundManager.Instance.PlayEffect(SoundList.sound_common_btn_in);
+        SoundManager.Instance.StopBGM();
+        PlayManager.instance.bIsGameOver = true;
+        GameManager.Instance.LoadScene(Data.scene_result);
+
+    }
 
 }

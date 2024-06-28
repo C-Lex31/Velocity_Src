@@ -1,31 +1,43 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class CoinGenerator : MonoBehaviour
 {
- private int amountOfCoins;
-    [SerializeField] private GameObject coinPrefab;
-    [SerializeField] private int minCoins;
-    [SerializeField] private int maxCoins;
-    [SerializeField] private float spacing=2;
+    public GameObject coinPrefab; // Reference to the coin prefab
+    public int minCoins = 3; // Minimum number of coins to spawn
+    public int maxCoins = 7; // Maximum number of coins to spawn
+    public float spacing = 1.0f; // Spacing between coins
+    public Vector3 offset = Vector3.zero; // Offset to start spawning coins
 
-    [SerializeField] private SpriteRenderer[] coinImg;
-
-    void Start()
+    private void Start()
     {
-        for (int i = 0; i < coinImg.Length; i++)
+        SpawnCoins();
+    }
+
+    private void SpawnCoins()
+    {
+        int numberOfCoins = Random.Range(minCoins, maxCoins + 1); // Randomize the number of coins
+        Vector3 spawnPosition = transform.position + offset;
+
+        for (int i = 0; i < numberOfCoins; i++)
         {
-            coinImg[i].sprite = null;
+            Instantiate(coinPrefab, spawnPosition, Quaternion.identity);
+            spawnPosition += new Vector3(spacing, 0, 0); // Adjust this if you want vertical or different spacing
         }
+    }
 
-        amountOfCoins = Random.Range(minCoins, maxCoins);
-        int additionalOffset = amountOfCoins / 2;
+    // Gizmo helpers to visualize the coin generator in the level editor
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position + offset, 0.5f);
 
-        for (int i = 0; i < amountOfCoins; i++)
+        int numberOfCoins = Mathf.Max(minCoins, maxCoins);
+        Vector3 gizmoPosition = transform.position + offset;
+
+        for (int i = 0; i < numberOfCoins; i++)
         {
-            Vector3 offset = new Vector2(i - additionalOffset, 0);
-            Instantiate(coinPrefab, transform.position + offset*spacing, Quaternion.identity,transform);
+            Gizmos.DrawWireSphere(gizmoPosition, 0.5f);
+            gizmoPosition += new Vector3(spacing, 0, 0); // Adjust this if you want vertical or different spacing
         }
     }
 }
