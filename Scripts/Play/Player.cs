@@ -51,8 +51,8 @@ public class Player : MonoBehaviour
     [SerializeField] private Vector2 wallCheckSize;
     [SerializeField] private float gravityScale;
     [SerializeField] private RagdollController ragdoll;
-    private float lowCheckOffset = 4;
-    private float highCheckOffset = 1;
+    [SerializeField]private float lowCheckOffset = 4;
+    [SerializeField]private float highCheckOffset = 1;
     Vector3 endPosition;
     private float globalGravity = -9.81f;
     private float horizontalInput = 1f;
@@ -62,7 +62,7 @@ public class Player : MonoBehaviour
     public float accelerationTimeGroundedRun = .3f;
     public float accelerationTimeGroundedSliding = 1f;
 
-    private bool bApplyGravity = true;
+    [SerializeField] private bool bApplyGravity = true;
     private bool bLedgeClimb;
 
     private bool bCanDoubleJump;
@@ -139,7 +139,7 @@ public class Player : MonoBehaviour
             HandleMovement();
 
             if (climbingState == ClimbingState.None && bIsGrounded) CheckLowerLedge();
-            if (climbingState == ClimbingState.None && rb.velocity.y < 0)
+            if (climbingState == ClimbingState.None && !bIsGrounded)
                 CheckLedge();
 
         }
@@ -211,12 +211,17 @@ public class Player : MonoBehaviour
     {
         horizontalInput *= -1;
     }
-    void HandleDeath()
+    void HandleDeath(float force = 0)
     {
         //Time.timeScale = 0.1f;
+        StartCoroutine(DeathCo());
+    }
+    IEnumerator DeathCo()
+    {
         ragdoll.RagdollStart();
-        PlayManager.instance.GameOver();
         bFlatlined = true;
+        yield return new WaitForSeconds(2.5f);
+        PlayManager.instance.GameOver();
     }
     RaycastHit groundHit;
 
@@ -229,9 +234,9 @@ public class Player : MonoBehaviour
         bCeillingDetected = Physics.Raycast(transform.position, Vector2.up, ceillingCheckDistance, whatIsGround);
         bWallDetected = Physics.BoxCast(wallCheck.position, wallCheckSize, Vector3.forward, Quaternion.identity, 10, whatIsGround);
 
-        if (Physics.SphereCast(transform.position + Vector3.up * (Capsule.height / lowCheckOffset), 0.25f, Vector3.right, out hit, 0.3f, whatIsGround))
+        if (Physics.SphereCast(transform.position + Vector3.up * (Capsule.height / lowCheckOffset), 0.12f, Vector3.right, out hit, 0.45f, whatIsGround))
 
-            bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (Capsule.height * highCheckOffset), 0.25f, Vector3.right, out hit, 0.3f, whatIsGround);
+            bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (Capsule.height * highCheckOffset), 0.12f, Vector3.right, out hit, 0.45f, whatIsGround);
 
 
     }
@@ -317,7 +322,7 @@ public class Player : MonoBehaviour
             RollEnd();
             if (bIsGrounded)
                 Jump(jumpForce);
-            else if (bCanDoubleJump)
+            else if (bCanDoubleJump  )
             {
                 bCanDoubleJump = false;
                 Jump(doubleJumpForce);
@@ -326,9 +331,9 @@ public class Player : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.S))
         {
-            if (bIsGrounded)
-                OnSlideStart();
-            else
+            // if (bIsGrounded)
+            OnSlideStart();
+            //  else
             if (rb.velocity.y < 0)
                 CancelJump();
         }
@@ -337,13 +342,15 @@ public class Player : MonoBehaviour
     {
         if (climbingState == ClimbingState.ClimbingLedge)      //stop move when climbing
             return;
-        if (rb)
-            rb.velocity = new Vector2(rb.velocity.x, force);
+
+        if(bIsSliding) OnSlideEnd();
+        //if (rb)
+        rb.velocity = new Vector2(rb.velocity.x, force);
 
     }
     void OnSlideStart()
     {
-        if (rb.velocity.x == 0 || slideCooldownCounter > 0) return;
+        // if (slideCooldownCounter > 0) return;
         Invoke("OnSlideEnd", slideTime);
         //  dustFx.Play();
         bIsSliding = true;
@@ -374,10 +381,29 @@ public class Player : MonoBehaviour
     {
         animator.SetBool("bCanRoll", false);
     }
+    void EarlyStopDoubleJumpAnim()
+    {
+        animator.SetBool("bEarlyExitDoubleJump" ,true);
+        Invoke("ResetEarlyExitDoubleJump" ,0.5f);
+    }
+    void ResetEarlyExitDoubleJump()
+    {
+     animator.SetBool("bEarlyExitDoubleJump" ,false);
+    }
     void CancelJump()
     {
         gravityModifier = 8;
     }
+
+    private void OnTriggerEnter(Collider other)
+    {
+
+        if (other.gameObject.tag == "Deadzone")
+            HandleDeath();
+    }
+
+
+
     public enum ClimbingState { None, ClimbingLedge }
     [Header("LEDGE CLIMB")]
     public ClimbingState climbingState;
@@ -615,7 +641,7 @@ public class Player : MonoBehaviour
         bIsGrabingRope = false;
     }
 
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y - groundCheckDistance));
         // verticalChecker.position, Vector3.down * verticalCheckDistance, Color.red
@@ -623,8 +649,13 @@ public class Player : MonoBehaviour
         Gizmos.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), Vector3.right * 2);
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y + ceillingCheckDistance));
         // Gizmos.DrawWireCube(wallCheck.position, wallCheckSize);
-        //    Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height / 4) + Vector3.right * 0.3f, 0.25f);
-        // Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height) + Vector3.right * 0.3f, 0.25f);
+          Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height / lowCheckOffset) + Vector3.right * 0.45f, 0.18f);
+         Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height*highCheckOffset) + Vector3.right * 0.45f, 0.18f);
+
+       
+          
+        
+
 
     }
 

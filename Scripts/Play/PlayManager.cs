@@ -27,8 +27,12 @@ public class PlayManager : MonoBehaviour
     [HideInInspector] public float distance;
     [HideInInspector] public int coins;
 
+    public ObjectPool<Coin> coinPool;
+
+    public Coin coinPrefab; // Reference to the coin prefab
     void Start()
     {
+       coinPool= new ObjectPool<Coin>(coinPrefab , 40);
         //Start game here 
         //Start BGM 
         //
