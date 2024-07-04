@@ -2,103 +2,98 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
-public class CoinGenerator : MonoBehaviour
+public class CoinGenerator : MonoBehaviour, IResettable
 {
-    //public Coin coinPrefab; // Reference to the coin prefab
-    public int poolSize = 20; // Number of coins to keep in the pool
     public int minCoins = 3; // Minimum number of coins to spawn
     public int maxCoins = 7; // Maximum number of coins to spawn
     public float spacing = 1.0f; // Spacing between coins
     public Vector3 offset = Vector3.zero; // Offset to start spawning coins
-    public float destroyDelay = 2.0f; // Time to wait before deactivating the coin after it goes out of view
+    public float destroyDelay = 0.8f; // Time to wait before deactivating the coin after it goes out of view
+    private float startCheckDelay = 0.5f; // Delay before starting the out-of-view check
 
     private ObjectPool<Coin> coinPool;
-    private List<Coin> coins = new List<Coin>();
+    [SerializeField] private List<Coin> coins = new List<Coin>();
     private Camera mainCamera;
+    //public static CoinGenerator Instance { get; private set; }   BadIdea
 
     private void Start()
     {
-        Debug.Log("CoinGenerator Start called for: " + gameObject.name);
+      //  mainCamera = Camera.main;
+      //  coinPool = PlayManager.instance.coinPool;
+      //  SpawnCoins();
+
+    }
+
+    public void ResetState()
+    {
         mainCamera = Camera.main;
-        
         coinPool = PlayManager.instance.coinPool;
         SpawnCoins();
     }
-
-    private void Update()
-    {
-        CheckCoinsOutOfView();
-    }
-
     private void SpawnCoins()
     {
         int numberOfCoins = Random.Range(minCoins, maxCoins + 1); // Randomize the number of coins
         Vector3 spawnPosition = transform.position + offset;
-
-        Debug.Log("Positioning" + numberOfCoins + " coins at " + gameObject.name);
 
         for (int i = 0; i < numberOfCoins; i++)
         {
             Coin coin = coinPool.GetObject();
             coin.gameObject.SetActive(true); // Ensure the coin is active
             coin.transform.position = spawnPosition;
+            coin.SetGenerator(this); // Set the generator reference
             coins.Add(coin);
             spawnPosition += new Vector3(spacing, 0, 0); // Adjust this for vertical or different spacing
         }
+        StartCoroutine(StartCheckCoinsOutOfViewAfterDelay(startCheckDelay));
     }
 
-    private void CheckCoinsOutOfView()
+    private IEnumerator StartCheckCoinsOutOfViewAfterDelay(float delay)
     {
-        foreach (Coin coin in coins)
+        yield return new WaitForSeconds(delay);
+        StartCoroutine(CheckCoinsOutOfView());
+
+    }
+
+    private IEnumerator CheckCoinsOutOfView()
+    {
+        while (coins.Count > 0)
         {
-            if (coin != null)
+            foreach (Coin coin in coins)
+
             {
-                bool isOutOfView = IsInView(coin.transform.position);
-               //Debug.Log($"Coin {coin.gameObject.name} is out of view: {isOutOfView}");
-                if (isOutOfView)
+                //Coin coin = coins[i];
+                if (coin != null && IsOutOfView(coin.transform.position))
                 {
-                    if (!coin.isOutOfView)
-                    {
-                        coin.isOutOfView = true;
-                        StartCoroutine(DeactivateCoinAfterDelay(coin));
-                    }
-                }
-                else
-                {
-                    coin.isOutOfView = false;
+                    StartCoroutine(DeactivateCoinAfterDelay(coin));
                 }
             }
+
+            yield return new WaitForSeconds(0.1f); // Check every 0.5 seconds
         }
+        //   StopCoroutine(CheckCoinsOutOfView());
     }
 
-    private bool IsInView(Vector3 position)
+    private bool IsOutOfView(Vector3 position)
     {
-       // Vector3 viewportPoint = mainCamera.WorldToViewportPoint(position);
-       // return viewportPoint.x > 0 && viewportPoint.x < 1 && viewportPoint.y > 0 && viewportPoint.y < 1 && viewportPoint.z > 0;
-   
-      Vector3 viewportPoint = mainCamera.WorldToViewportPoint(position);
+        Vector3 viewportPoint = mainCamera.WorldToViewportPoint(position);
 
-    // Check if the coin is to the left of the camera's view
-    bool isPassedCamera = viewportPoint.x < 0;
-
-    return isPassedCamera;
+        // Check if the coin is to the left of the camera's view
+        return viewportPoint.x < 0;
     }
 
     private IEnumerator DeactivateCoinAfterDelay(Coin coin)
     {
         yield return new WaitForSeconds(destroyDelay);
-        if (coin != null && coin.isOutOfView)
+        if (coin != null && coin.gameObject.activeSelf)
         {
-            coin.isOutOfView = false;
-            coin.gameObject.SetActive(false); // Deactivate the coin
-            coinPool.ReturnObject(coin);
-            coins.Remove(coin);
+            ReturnCoin(coin);
         }
     }
 
     public void ReturnCoin(Coin coin)
     {
         coinPool.ReturnObject(coin);
+        coins.Remove(coin);
     }
 
     // Gizmo helpers to visualize the coin generator in the level editor
@@ -115,5 +110,10 @@ public class CoinGenerator : MonoBehaviour
             Gizmos.DrawWireSphere(gizmoPosition, 0.5f);
             gizmoPosition += new Vector3(spacing, 0, 0); // Adjust this if you want vertical or different spacing
         }
+    }
+
+    public void ClearState()
+    {
+        throw new System.NotImplementedException();
     }
 }

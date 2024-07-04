@@ -5,10 +5,12 @@ using UnityEngine;
 public class Coin : MonoBehaviour ,IPoolable
 {
     public bool isOutOfView;
+    private CoinGenerator generator;
 
     public void OnSpawn()
     {
         // Reset the coin's state if needed
+        //isOutOfView = true;
     }
 
     public void OnDespawn()
@@ -21,11 +23,20 @@ public class Coin : MonoBehaviour ,IPoolable
 
         if (collision.GetComponent<Player>() != null)
         {
-            //AudioManager.instance.PlaySFX(0);
+           
 
             PlayManager.instance.coins++;
             SoundManager.Instance.PlayEffect(SoundList.sound_play_common_sfx_coincollect);
-            Destroy(gameObject);
+            generator.ReturnCoin(this);
         }
+    }
+
+    /// <summary>
+    /// The primary issue that led to this solution was the shared state across multiple instances when using the static Instance approach. By switching to a direct reference method, each coin reliably communicates with its parent generator, ensuring correct removal and pooling behavior. This approach scales correctly with multiple CoinGenerator instances and avoids conflicts and incorrect references inherent in the singleton pattern for this use case.
+    /// </summary>
+    /// <param name="gen"></param>
+        public void SetGenerator(CoinGenerator gen)
+    {
+        generator = gen;
     }
 }

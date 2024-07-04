@@ -32,7 +32,7 @@ public class PlayManager : MonoBehaviour
     public Coin coinPrefab; // Reference to the coin prefab
     void Start()
     {
-       coinPool= new ObjectPool<Coin>(coinPrefab , 40);
+       coinPool= new ObjectPool<Coin>(coinPrefab , 65);
         //Start game here 
         //Start BGM 
         //
@@ -64,7 +64,7 @@ public class PlayManager : MonoBehaviour
     }
     public void GameOver()
     {
-        Debug.Log("GameOver");
+
         GameManager.Instance.distance = (int)distance;
         GameManager.Instance.coins =coins;
         GameManager.Instance.score= (int)distance *  coins;

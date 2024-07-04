@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using UnityEngine;
 
 
@@ -18,16 +19,25 @@ public class CollectibleSpawnInfo
     public float spawnWeight = 0.5f; // Weight for spawning this collectible
 }
 
-public class ItemGenerator : MonoBehaviour
+public class ItemGenerator : MonoBehaviour, IResettable
 {
-     public PowerupSpawnInfo[] powerupSpawnInfos; // Array of power-ups with spawn weights
+    public PowerupSpawnInfo[] powerupSpawnInfos; // Array of power-ups with spawn weights
     public CollectibleSpawnInfo[] collectibleSpawnInfos; // Array of collectibles with spawn weights
+    private GameObject spawnedItem;
 
     void Start()
     {
-        SpawnRandomItem();
+       // SpawnRandomItem();
     }
 
+    public void ResetState()
+    {
+         SpawnRandomItem();
+    }
+    public void ClearState()
+    {
+        Destroy(spawnedItem);
+    }
     // Call this method when you want to spawn a random item
     public void SpawnRandomItem()
     {
@@ -121,7 +131,7 @@ public class ItemGenerator : MonoBehaviour
             if (randomValue <= cumulativeWeight)
             {
                 GameObject collectiblePrefab = collectibleInfo.collectiblePrefab;
-                Instantiate(collectiblePrefab, transform.position, Quaternion.identity);
+                spawnedItem=Instantiate(collectiblePrefab, transform.position, Quaternion.identity);
                 return; // Exit method after spawning one collectible
             }
         }
@@ -132,4 +142,6 @@ public class ItemGenerator : MonoBehaviour
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, 0.5f);
     }
+
+
 }

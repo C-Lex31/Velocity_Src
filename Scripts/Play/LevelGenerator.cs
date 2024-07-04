@@ -1,81 +1,157 @@
-
 using UnityEngine;
+using System.Collections.Generic;
 
 public class LevelGenerator : MonoBehaviour
 {
-
     [SerializeField] private Transform levelStart;
-    [SerializeField] private Transform[] easyLevelPart;
-    [SerializeField] private Transform[] medLevelPart;
-    [SerializeField] private Transform[] hardLevelPart;
-    [SerializeField] private float distanceToSpawn;
-    [SerializeField] private float distanceToDelete;
+    [SerializeField] private Transform[] easyLevelParts;
+    [SerializeField] private Transform[] mediumLevelParts;
+    [SerializeField] private Transform[] hardLevelParts;
+    [SerializeField] private float distanceToSpawn = 50f;
+    [SerializeField] private float distanceToDelete = 60f;
+    private Queue<Transform> activePlatforms = new Queue<Transform>();
+    public Dictionary<Transform, ObjectPool<Transform>> platformPools = new Dictionary<Transform, ObjectPool<Transform>>();
 
-    private int LevelSpawnCount;
-    private Transform[] levelPart;
     private Vector3 nextPartPosition;
+    private int levelSpawnCount;
 
-    private enum LevelDifficulty{
+    private List<Transform> shuffledLevelParts;
+    private int shuffledIndex = 0;
+
+    private enum LevelDifficulty
+    {
         Easy,
         Medium,
         Hard
     }
-    void Start()
+
+    private void Start()
     {
-       // nextPartPosition = levelStart.Find("EndPoint").position;
+        InitializePools();
+        nextPartPosition = levelStart.Find("EndPoint").position;
+        GenerateInitialPlatforms();
     }
 
-    void Update()
+    private void Update()
     {
         DeletePlatform();
         GeneratePlatform();
     }
-     private void GeneratePlatform()
+
+    private void InitializePools()
     {
-        while (Vector2.Distance(Player.instance.transform.position,nextPartPosition) < distanceToSpawn)
+        InitializePoolForLevelParts(easyLevelParts);
+        InitializePoolForLevelParts(mediumLevelParts);
+        InitializePoolForLevelParts(hardLevelParts);
+
+        InitializeShuffledParts(easyLevelParts); // Initialize shuffled parts for the starting difficulty
+    }
+
+    private void InitializePoolForLevelParts(Transform[] levelParts)
+    {
+        foreach (var part in levelParts)
         {
-           
-        
-            switch(GetLevelDiffiluty())
+            if (!platformPools.ContainsKey(part))
             {
-                case LevelDifficulty.Easy: levelPart = easyLevelPart; break;
-                case LevelDifficulty.Medium: levelPart = medLevelPart; break;
-                case LevelDifficulty.Hard: levelPart = hardLevelPart; break;
-                default: levelPart =easyLevelPart; break;
+                platformPools[part] = new ObjectPool<Transform>(part, levelParts.Length);
             }
-            
-
-            Transform part = levelPart[Random.Range(0, levelPart.Length)];
-            
-            Vector2 newPosition = new Vector2(nextPartPosition.x - part.Find("StartPoint").position.x, 0);
-
-            Transform newPart = Instantiate(part, newPosition, transform.rotation, transform);
-            
-            LevelSpawnCount++;
-            nextPartPosition = newPart.Find("EndPoint").position;
-        
-
-
         }
     }
 
+    private void InitializeShuffledParts(Transform[] levelParts)
+    {
+        shuffledLevelParts = new List<Transform>(levelParts);
+        Shuffle(shuffledLevelParts);
+        shuffledIndex = 0;
+    }
+
+    private void GenerateInitialPlatforms()
+    {
+        for (int i = 0; i < easyLevelParts.Length / 2; i++)
+        {
+            GeneratePlatform();
+        }
+    }
+
+    private void GeneratePlatform()
+    {
+        while (Vector3.Distance(Player.instance.transform.position, nextPartPosition) < distanceToSpawn)
+        {
+            if (shuffledIndex >= shuffledLevelParts.Count)
+            {
+                Shuffle(shuffledLevelParts);
+                shuffledIndex = 0;
+            }
+
+            Transform partPrefab = shuffledLevelParts[shuffledIndex];
+            shuffledIndex++;
+
+            Transform newPart = platformPools[partPrefab].GetObject();
+
+            Vector3 newPosition = new Vector3(nextPartPosition.x, 0, 0);
+            newPart.position = newPosition;
+            newPart.SetParent(transform);
+
+            // Call ResetState on all IResettable components
+            foreach (var resettable in newPart.GetComponentsInChildren<IResettable>())
+            {
+                resettable.ResetState();
+            }
+
+            activePlatforms.Enqueue(newPart);
+            nextPartPosition = newPart.Find("EndPoint").position;
+
+            Debug.Log("New part spawned. New part position: " + newPart.position + ", Next part position: " + nextPartPosition);
+
+            levelSpawnCount++;
+        }
+    }
 
     private void DeletePlatform()
     {
-        if (transform.childCount > 0)
+        if (activePlatforms.Count > 0)
         {
-            Transform partToDelete = transform.GetChild(0);
+            Transform partToDelete = activePlatforms.Peek();
 
-            if (Vector2.Distance(Player.instance.transform.position, partToDelete.transform.position) > distanceToDelete)
-                Destroy(partToDelete.gameObject);
-
+            if (Vector3.Distance(Player.instance.transform.position, partToDelete.position) > distanceToDelete)
+            {
+                activePlatforms.Dequeue();
+                foreach (var pool in platformPools)
+                {
+                    if (pool.Value.ContainsObject(partToDelete))
+                    {
+                        pool.Value.ReturnObject(partToDelete);
+                        Debug.Log("Returned part to pool: " + partToDelete.name);
+                        break;
+                    }
+                }
+            }
         }
     }
-    private LevelDifficulty GetLevelDiffiluty()
+
+    private Transform[] GetLevelParts()
     {
-       // if(LevelSpawnCount>=10) return LevelDifficulty.Hard;
-       // if(LevelSpawnCount>=05) return LevelDifficulty.Medium;
-        return LevelDifficulty.Easy;
-       
+        if (levelSpawnCount >= 10) return hardLevelParts;
+        if (levelSpawnCount >= 5) return mediumLevelParts;
+        return easyLevelParts;
     }
+
+    private void Shuffle(List<Transform> list)
+    {
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            Transform temp = list[i];
+            list[i] = list[j];
+            list[j] = temp;
+        }
+    }
+
+    private void SpawnTrapsAndItems()
+    {
+
+    }
+
+
+
 }

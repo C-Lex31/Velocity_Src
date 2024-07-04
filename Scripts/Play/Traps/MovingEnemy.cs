@@ -2,19 +2,20 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MovingEnemy: MonoBehaviour
+public class MovingEnemy: TrapBase
 {
-     public float moveSpeed = 5f; // Speed of the enemy
-    public float moveDistance = 10f; // Distance the enemy travels in one direction
-    public float pauseDuration = 1f; // Time the enemy pauses at each end
+   [SerializeField]  private float moveSpeed = 5f; // Speed of the enemy
+    [SerializeField]private float moveDistance = 10f; // Distance the enemy travels in one direction
+    [SerializeField]private float pauseDuration = 1f; // Time the enemy pauses at each end
 
     private Vector3 startPos;
     private Vector3 endPos;
     private bool movingToEnd = true;
     private bool isPaused = false;
 
-    private void Start()
+    protected override  void Start()
     {
+        base.Start();
         startPos = transform.position;
         endPos = startPos + Vector3.right * moveDistance;
     }
@@ -67,8 +68,16 @@ public class MovingEnemy: MonoBehaviour
         rotation.y += 180;
         transform.eulerAngles = rotation;
     }
+  void OnTriggerEnter(Collider col)
+    {
+        if(!(col.gameObject.tag=="Player"))return;
 
-    private void OnDrawGizmosSelected()
+        Debug.Log("BOOM");
+       // GetComponentInChildren<Collider>().
+
+    }
+
+  void OnDrawGizmos()
     {
         if (Application.isPlaying)
         {

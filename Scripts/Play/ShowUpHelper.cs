@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class ShowUpHelper : MonoBehaviour
+public class ShowUpHelper : TrapBase
 {
       public bool use = true;
     public Vector2 localPosA = new Vector2(0, -1);
@@ -62,4 +62,5 @@ public class ShowUpHelper : MonoBehaviour
         if (use)
             Gizmos.DrawWireSphere(transform.position, detectPlayerDistance);
     }
+
 }

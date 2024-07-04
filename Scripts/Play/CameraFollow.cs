@@ -27,6 +27,7 @@ public class CameraFollow : MonoBehaviour
     }
     private void LateUpdate()
     {
+        if(Player.instance.bFlatlined)return;
         offset = offsetPlayer;
         offset.z = transform.position.z;
 

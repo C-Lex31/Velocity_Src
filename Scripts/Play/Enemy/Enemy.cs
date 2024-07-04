@@ -9,7 +9,7 @@ using UnityEditor.Experimental.GraphView;
 //using System.Numerics;
 using UnityEngine;
 
-public class Player : MonoBehaviour
+public class Enemy : MonoBehaviour
 {
     public float moveSpeed;
     public float jumpForce;
@@ -20,14 +20,14 @@ public class Player : MonoBehaviour
 
     public CapsuleCollider Capsule { get; private set; }
 
-    private static Player _instance;
-    public static Player instance
+    private static Enemy _instance;
+    public static Enemy instance
     {
         get
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<Player>();
+                _instance = FindObjectOfType<Enemy>();
             }
 
             return _instance;
@@ -113,26 +113,7 @@ public class Player : MonoBehaviour
     void Update()
     {
         if (bFlatlined) return;
-        if (bIsGrabingRope && !bIsGrounded)
-        {
-            transform.RotateAround(currentAvailableRope.transform.position, rotateAxis, horizontalInput * (ropeSpeed * moveSpeed) * Time.deltaTime);
-
-
-            transform.up = currentAvailableRope.transform.position - transform.position;
-            transform.Rotate(0, horizontalInput > 0 ? 90 : -90, 0);
-
-            ropeRenderer.SetPosition(0, transform.position + transform.forward * grabOffset.x + transform.up * grabOffset.y);
-            ropeRenderer.SetPosition(1, currentAvailableRope.transform.position);
-
-            if (transform.position.y >= releasePointY)
-            {
-                if ((horizontalInput > 0 && transform.position.x > currentAvailableRope.transform.position.x) || (horizontalInput < 0 && transform.position.x < currentAvailableRope.transform.position.x))
-                    //GrabRelease();      //disconnect grab if player reach to the limit position
-                    Flip();
-            }
-        }
-        else
-        {
+        
             // slideTimeCounter -= Time.deltaTime;
             slideCooldownCounter -= Time.deltaTime;
             CheckCollision();
@@ -142,14 +123,14 @@ public class Player : MonoBehaviour
             if (climbingState == ClimbingState.None && !bIsGrounded)
                 CheckLedge();
 
-        }
+        
 
         if (bIsGrounded)
         {
             bCanDoubleJump = true;
             gravityModifier = 1;
         }
-        else CheckRopeInZone(); //Only check for rope point when in air
+      
 
         UpdateAnimatorValues();
         CheckForSlideCancel();
@@ -308,14 +289,7 @@ public class Player : MonoBehaviour
     void KeyboardControls()
     {
 
-        if (currentAvailableRope != null)
-        {
-            if (Input.GetMouseButtonDown(0))
-                GrabRope();
-
-            if (Input.GetMouseButtonUp(0))
-                GrabRelease();
-        }
+      
 
         if (Input.GetKeyDown(KeyCode.Space))
         {
@@ -342,17 +316,8 @@ public class Player : MonoBehaviour
             return;
 
         if (bIsSliding) OnSlideEnd();
-
-        // float targetVelocityY = Mathf.Sqrt(2 * Mathf.Abs(force) * Mathf.Abs(globalGravity));
-        float targetVelocityY = Mathf.Sqrt(2 * Mathf.Abs(jumpForce) * Mathf.Abs(globalGravity));
-
-        // Ensure the jump direction is correct based on jumpForce
-        if (jumpForce < 0)
-            targetVelocityY = -targetVelocityY;
-        rb.velocity = new Vector3(rb.velocity.x, targetVelocityY,0);
         //if (rb)
-       // rb.velocity = new Vector2(rb.velocity.x, force);
-        //  rb.velocity = new Vector3(rb.velocity.x, Mathf.Lerp(rb.velocity.y, targetVelocityY, Time.deltaTime * 1f), rb.velocity.z);
+        rb.velocity = new Vector2(rb.velocity.x, force);
 
     }
     void OnSlideStart()
@@ -386,7 +351,7 @@ public class Player : MonoBehaviour
     }
     public void RollEnd()
     {
-        Capsule.height = originalCharHeight;
+           Capsule.height = originalCharHeight;
         var _center = Capsule.center;
         _center.y = originalCharCenterY;
         Capsule.center = _center;
@@ -401,7 +366,7 @@ public class Player : MonoBehaviour
 
         Capsule.center = _center;
     }
-
+   
 
     void DoubleJumpStart()
     {
@@ -496,7 +461,7 @@ public class Player : MonoBehaviour
             Debug.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), (horizontalInput > 0 ? Vector3.right : Vector3.left) * 2);
             if (Physics.Raycast(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), horizontalInput > 0 ? Vector3.right : Vector3.left, out hitHorizontal, 2, whatIsGround, QueryTriggerInteraction.Ignore))
             {
-        
+                Debug.Log("Ledge");
                 ledgeTarget = hitVertical.transform;
                 ledgePoint = new Vector3(hitHorizontal.point.x, hitVertical.point.y, transform.position.z);
                 //   velocity = Vector2.zero;
@@ -560,119 +525,18 @@ public class Player : MonoBehaviour
         animator.SetBool("bLowLedgeClimb", false);
         ledgeTarget = null;
     }
-    void CheckRopeInZone()
-    {
-        if (bIsGrabingRope)
-            return;
-
-        var hits = Physics.OverlapSphere(transform.position + Vector3.up * Capsule.height * 0.5f, ropeCheckRadius, WhatIsRope);
-
-        if (hits.Length > 0)
-        {
-            for (int i = 0; i < hits.Length; i++)
-            {
-                if (horizontalInput > 0)
-                {
-                    if (hits[i].transform.position.x > transform.position.x)
-                    {
-                        currentAvailableRope = hits[i].GetComponent<RopePoint>();
-                        if (lastRopePointObj != currentAvailableRope)
-                        {
-                            if (currentAvailableRope.slowMotion)
-                                Time.timeScale = 0.1f;
-                        }
-                        else
-                            currentAvailableRope = null;
-                    }
-                    else
-                        currentAvailableRope = null;
-                }
-                else
-                {
-                    if (hits[i].transform.position.x < transform.position.x)
-                    {
-                        currentAvailableRope = hits[i].GetComponent<RopePoint>();
-                        if (lastRopePointObj != currentAvailableRope)
-                        {
-                            if (currentAvailableRope.slowMotion)
-                                Time.timeScale = 0.1f;
-                        }
-                        else
-                            currentAvailableRope = null;
-                    }
-                    else
-                        currentAvailableRope = null;
-                }
-            }
-        }
-        else
-        {
-            if (currentAvailableRope != null)       //set time scale back to normal if it active the slow motion before but player don't grab
-            {
-                if (currentAvailableRope.slowMotion)
-                    Time.timeScale = 1;
-            }
-
-            currentAvailableRope = null;
-        }
-    }
-
-    public void GrabRope()
-    {
-        if (bIsGrabingRope)
-            return;
-
-        if (bIsGrounded)
-            return;     //don't allow grab rope when standing on ground
-        if (rb)
-        {
-            bApplyGravity = false;
-            rb.isKinematic = true;
-        }
-
-        if (lastRopePointObj != currentAvailableRope)
-        {
-
-            if (currentAvailableRope.slowMotion)
-                Time.timeScale = 1;
-
-            lastRopePointObj = currentAvailableRope;
-            bIsGrabingRope = true;
-            // SoundManager.PlaySfx(soundGrap);
-            float distance = Vector2.Distance(transform.position, currentAvailableRope.transform.position);
-            releasePointY = currentAvailableRope.transform.position.y - distance / 10f;
-        }
-    }
-
-    public void GrabRelease()
-    {
-        if (!bIsGrabingRope)
-            return;
-        bCanDoubleJump = false;
-        if (rb)
-        {
-            bApplyGravity = true;
-            rb.isKinematic = false;
-            rb.velocity = releaseForce * transform.forward;
-            rb.AddForce(rb.velocity, ForceMode.Impulse);
-        }
-
-
-        Time.timeScale = 1;
-        //  SoundManager.PlaySfx(soundRopeJump);
-        bIsGrabingRope = false;
-    }
+    
 
     private void OnDrawGizmosSelected()
     {
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y - groundCheckDistance));
         // verticalChecker.position, Vector3.down * verticalCheckDistance, Color.red
-        // Gizmos.DrawRay(verticalChecker.position, Vector3.down * verticalCheckDistance);
-        // Gizmos.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), Vector3.right * 2);
+        Gizmos.DrawRay(verticalChecker.position, Vector3.down * verticalCheckDistance);
+        Gizmos.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), Vector3.right * 2);
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y + ceillingCheckDistance));
         // Gizmos.DrawWireCube(wallCheck.position, wallCheckSize);
-        //        Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height / lowCheckOffset) + Vector3.right * 0.45f, 0.18f);
-        //Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height * highCheckOffset) + Vector3.right * 0.45f, 0.18f);
+        Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height / lowCheckOffset) + Vector3.right * 0.45f, 0.18f);
+        Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height * highCheckOffset) + Vector3.right * 0.45f, 0.18f);
 
 
 
