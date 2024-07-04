@@ -8,12 +8,13 @@ public class ObjectPool<T> where T : Component
     private readonly HashSet<T> activeObjects = new HashSet<T>();
     private float lastCleanupTime;
     private readonly float cleanupInterval = 20f; // Interval for cleanup in seconds
-    private readonly float maxIdleTime =10f; // Maximum idle time in seconds before cleanup
+    private readonly float maxIdleTime = 10f; // Maximum idle time in seconds before cleanup
+    private readonly int maxPoolSize; // Maximum number of items in the pool
 
-    public ObjectPool(T prefab, int initialSize)
+    public ObjectPool(T prefab, int initialSize, int maxPoolSize)
     {
-        Debug.Log("PoolCreated");
         this.prefab = prefab;
+        this.maxPoolSize = maxPoolSize;
         for (int i = 0; i < initialSize; i++)
         {
             T newObject = GameObject.Instantiate(prefab);
@@ -33,7 +34,6 @@ public class ObjectPool<T> where T : Component
         else
         {
             obj = GameObject.Instantiate(prefab);
-            Debug.Log($"INSTANTIATING{obj}");
         }
 
         obj.gameObject.SetActive(true);
@@ -55,7 +55,15 @@ public class ObjectPool<T> where T : Component
         }
         obj.gameObject.SetActive(false);
         activeObjects.Remove(obj);
-        objects.Enqueue((obj, Time.time));
+
+        if (objects.Count >= maxPoolSize)
+        {
+            GameObject.Destroy(obj.gameObject);
+        }
+        else
+        {
+            objects.Enqueue((obj, Time.time));
+        }
 
         // Perform cleanup check
         if (Time.time - lastCleanupTime > cleanupInterval)

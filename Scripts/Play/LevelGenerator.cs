@@ -4,19 +4,20 @@ using System.Collections.Generic;
 public class LevelGenerator : MonoBehaviour
 {
     [SerializeField] private Transform levelStart;
-    [SerializeField] private Transform[] easyLevelParts;
-    [SerializeField] private Transform[] mediumLevelParts;
-    [SerializeField] private Transform[] hardLevelParts;
-    [SerializeField] private float distanceToSpawn = 50f;
-    [SerializeField] private float distanceToDelete = 60f;
-    private Queue<Transform> activePlatforms = new Queue<Transform>();
-    public Dictionary<Transform, ObjectPool<Transform>> platformPools = new Dictionary<Transform, ObjectPool<Transform>>();
+    [SerializeField] private Transform[] easyLevelSegments;
+    [SerializeField] private Transform[] mediumLevelSegments;
+    [SerializeField] private Transform[] hardLevelSegments;
+    [SerializeField] private float distanceToSpawn = 10f;
+    [SerializeField] private float distanceToDelete = 20f;
 
-    private Vector3 nextPartPosition;
-    private int levelSpawnCount;
-
-    private List<Transform> shuffledLevelParts;
+    private int levelSpawnCount = 0;
+    private Transform[] levelSegments;
+    private Vector3 nextSegmentPosition;
+    private Queue<Transform> activeSegments = new Queue<Transform>();
+    private List<Transform> shuffledLevelSegments;
     private int shuffledIndex = 0;
+
+    private Transform currentSegment;
 
     private enum LevelDifficulty
     {
@@ -25,103 +26,93 @@ public class LevelGenerator : MonoBehaviour
         Hard
     }
 
-    private void Start()
+    void Start()
     {
-        InitializePools();
-        nextPartPosition = levelStart.Find("EndPoint").position;
-        GenerateInitialPlatforms();
+        nextSegmentPosition = levelStart.Find("EndPoint").position;
+        SpawnInitialSegments();
+        currentSegment = activeSegments.Peek();
     }
 
-    private void Update()
+    void Update()
     {
-        DeletePlatform();
-        GeneratePlatform();
+        DeleteSegment();
+        GenerateSegment();
     }
 
-    private void InitializePools()
+    private void SpawnInitialSegments()
     {
-        InitializePoolForLevelParts(easyLevelParts);
-        InitializePoolForLevelParts(mediumLevelParts);
-        InitializePoolForLevelParts(hardLevelParts);
-
-        InitializeShuffledParts(easyLevelParts); // Initialize shuffled parts for the starting difficulty
-    }
-
-    private void InitializePoolForLevelParts(Transform[] levelParts)
-    {
-        foreach (var part in levelParts)
+        for (int i = 0; i < 3; i++)
         {
-            if (!platformPools.ContainsKey(part))
+            GenerateSegment();
+        }
+    }
+
+    private void GenerateSegment()
+    {
+        while (Vector2.Distance(Player.instance.transform.position, nextSegmentPosition) < distanceToSpawn)
+        {
+            switch (GetLevelDifficulty())
             {
-                platformPools[part] = new ObjectPool<Transform>(part, levelParts.Length);
+                case LevelDifficulty.Easy:
+                    levelSegments = easyLevelSegments;
+                    break;
+                case LevelDifficulty.Medium:
+                    levelSegments = mediumLevelSegments;
+                    break;
+                case LevelDifficulty.Hard:
+                    levelSegments = hardLevelSegments;
+                    break;
+                default:
+                    levelSegments = easyLevelSegments;
+                    break;
             }
-        }
-    }
 
-    private void InitializeShuffledParts(Transform[] levelParts)
-    {
-        shuffledLevelParts = new List<Transform>(levelParts);
-        Shuffle(shuffledLevelParts);
-        shuffledIndex = 0;
-    }
-
-    private void GenerateInitialPlatforms()
-    {
-        for (int i = 0; i < easyLevelParts.Length / 2; i++)
-        {
-            GeneratePlatform();
-        }
-    }
-
-    private void GeneratePlatform()
-    {
-        while (Vector3.Distance(Player.instance.transform.position, nextPartPosition) < distanceToSpawn)
-        {
-            if (shuffledIndex >= shuffledLevelParts.Count)
+            if (shuffledLevelSegments == null || shuffledLevelSegments.Count != levelSegments.Length)
             {
-                Shuffle(shuffledLevelParts);
+                shuffledLevelSegments = new List<Transform>(levelSegments);
+                Shuffle(shuffledLevelSegments);
                 shuffledIndex = 0;
             }
 
-            Transform partPrefab = shuffledLevelParts[shuffledIndex];
-            shuffledIndex++;
+            Transform segment = shuffledLevelSegments[shuffledIndex];
+            shuffledIndex = (shuffledIndex + 1) % shuffledLevelSegments.Count;
 
-            Transform newPart = platformPools[partPrefab].GetObject();
+            Vector2 newPosition = new Vector2(nextSegmentPosition.x - segment.Find("StartPoint").position.x, 0);
+            Transform newSegment = Instantiate(segment, newPosition, transform.rotation, transform);
 
-            Vector3 newPosition = new Vector3(nextPartPosition.x, 0, 0);
-            newPart.position = newPosition;
-            newPart.SetParent(transform);
-
-            // Call ResetState on all IResettable components
-            foreach (var resettable in newPart.GetComponentsInChildren<IResettable>())
-            {
-                resettable.ResetState();
-            }
-
-            activePlatforms.Enqueue(newPart);
-            nextPartPosition = newPart.Find("EndPoint").position;
-
-            Debug.Log("New part spawned. New part position: " + newPart.position + ", Next part position: " + nextPartPosition);
+            nextSegmentPosition = newSegment.Find("EndPoint").position;
+            activeSegments.Enqueue(newSegment);
 
             levelSpawnCount++;
         }
     }
 
-    private void DeletePlatform()
+    private void DeleteSegment()
     {
-        if (activePlatforms.Count > 0)
+        if (currentSegment == null && activeSegments.Count > 0)
         {
-            Transform partToDelete = activePlatforms.Peek();
+            currentSegment = activeSegments.Peek();
+        }
 
-            if (Vector3.Distance(Player.instance.transform.position, partToDelete.position) > distanceToDelete)
+        if (currentSegment != null)
+        {
+            Transform endPoint = currentSegment.Find("EndPoint");
+
+            if (Player.instance.transform.position.x > endPoint.position.x)
             {
-                activePlatforms.Dequeue();
-                foreach (var pool in platformPools)
+                while (activeSegments.Count > 0)
                 {
-                    if (pool.Value.ContainsObject(partToDelete))
+                    Transform segmentToDelete = activeSegments.Peek();
+                    Transform startPoint = segmentToDelete.Find("StartPoint");
+
+                    if (Player.instance.transform.position.x - startPoint.position.x > distanceToDelete)
                     {
-                        pool.Value.ReturnObject(partToDelete);
-                        Debug.Log("Returned part to pool: " + partToDelete.name);
+                        activeSegments.Dequeue();
+                        Destroy(segmentToDelete.gameObject);
+                    }
+                    else
+                    {
+                        currentSegment = segmentToDelete;
                         break;
                     }
                 }
@@ -129,11 +120,11 @@ public class LevelGenerator : MonoBehaviour
         }
     }
 
-    private Transform[] GetLevelParts()
+    private LevelDifficulty GetLevelDifficulty()
     {
-        if (levelSpawnCount >= 10) return hardLevelParts;
-        if (levelSpawnCount >= 5) return mediumLevelParts;
-        return easyLevelParts;
+        // if (levelSpawnCount >= 10) return LevelDifficulty.Hard;
+        // if (levelSpawnCount >= 5) return LevelDifficulty.Medium;
+        return LevelDifficulty.Easy;
     }
 
     private void Shuffle(List<Transform> list)
@@ -146,12 +137,4 @@ public class LevelGenerator : MonoBehaviour
             list[j] = temp;
         }
     }
-
-    private void SpawnTrapsAndItems()
-    {
-
-    }
-
-
-
 }

@@ -19,7 +19,7 @@ public class CollectibleSpawnInfo
     public float spawnWeight = 0.5f; // Weight for spawning this collectible
 }
 
-public class ItemGenerator : MonoBehaviour, IResettable
+public class ItemGenerator : MonoBehaviour
 {
     public PowerupSpawnInfo[] powerupSpawnInfos; // Array of power-ups with spawn weights
     public CollectibleSpawnInfo[] collectibleSpawnInfos; // Array of collectibles with spawn weights
@@ -27,17 +27,9 @@ public class ItemGenerator : MonoBehaviour, IResettable
 
     void Start()
     {
-       // SpawnRandomItem();
+        SpawnRandomItem();
     }
 
-    public void ResetState()
-    {
-         SpawnRandomItem();
-    }
-    public void ClearState()
-    {
-        Destroy(spawnedItem);
-    }
     // Call this method when you want to spawn a random item
     public void SpawnRandomItem()
     {

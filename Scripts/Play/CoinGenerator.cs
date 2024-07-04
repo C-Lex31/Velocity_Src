@@ -18,9 +18,9 @@ public class CoinGenerator : MonoBehaviour, IResettable
 
     private void Start()
     {
-      //  mainCamera = Camera.main;
-      //  coinPool = PlayManager.instance.coinPool;
-      //  SpawnCoins();
+        mainCamera = Camera.main;
+        coinPool = PlayManager.instance.coinPool;
+        SpawnCoins();
 
     }
 
