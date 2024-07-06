@@ -227,7 +227,7 @@ public class Player : MonoBehaviour
 
     void CheckCollision()
     {
-        if (climbingState == ClimbingState.ClimbingLedge) return;
+        if (climbingState != ClimbingState.None || animator.hasRootMotion) return;
         RaycastHit hit;
         bIsGrounded = Physics.SphereCast(transform.position + Vector3.up * 1, Capsule.radius * 0.9f, Vector3.down, out groundHit, 1f, whatIsGround);
 
@@ -349,9 +349,9 @@ public class Player : MonoBehaviour
         // Ensure the jump direction is correct based on jumpForce
         if (jumpForce < 0)
             targetVelocityY = -targetVelocityY;
-        rb.velocity = new Vector3(rb.velocity.x, targetVelocityY,0);
+        rb.velocity = new Vector3(rb.velocity.x, targetVelocityY, 0);
         //if (rb)
-       // rb.velocity = new Vector2(rb.velocity.x, force);
+        // rb.velocity = new Vector2(rb.velocity.x, force);
         //  rb.velocity = new Vector3(rb.velocity.x, Mathf.Lerp(rb.velocity.y, targetVelocityY, Time.deltaTime * 1f), rb.velocity.z);
 
     }
@@ -425,7 +425,7 @@ public class Player : MonoBehaviour
 
 
 
-    public enum ClimbingState { None, ClimbingLedge }
+    public enum ClimbingState { None, ClimbingLedge, Parkour }
     [Header("LEDGE CLIMB")]
     public ClimbingState climbingState;
     [Tooltip("Ofsset from ledge to set character position")]
@@ -496,7 +496,7 @@ public class Player : MonoBehaviour
             Debug.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), (horizontalInput > 0 ? Vector3.right : Vector3.left) * 2);
             if (Physics.Raycast(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), horizontalInput > 0 ? Vector3.right : Vector3.left, out hitHorizontal, 2, whatIsGround, QueryTriggerInteraction.Ignore))
             {
-        
+
                 ledgeTarget = hitVertical.transform;
                 ledgePoint = new Vector3(hitHorizontal.point.x, hitVertical.point.y, transform.position.z);
                 //   velocity = Vector2.zero;
@@ -663,6 +663,20 @@ public class Player : MonoBehaviour
         bIsGrabingRope = false;
     }
 
+    public void TriggerParkourAnimation(AnimationClip animClip)
+    {
+        Debug.Log(animClip.name);
+        climbingState = ClimbingState.Parkour;
+        animator.applyRootMotion = true;
+        //animator.GetCurrentAnimatorStateInfo(0).
+        animator.Play(animClip.name);
+
+    }
+    void AN_FinishParkour()
+    {
+        climbingState = ClimbingState.None;
+        animator.applyRootMotion = false;
+    }
     private void OnDrawGizmosSelected()
     {
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y - groundCheckDistance));

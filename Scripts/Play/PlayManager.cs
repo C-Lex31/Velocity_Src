@@ -32,7 +32,7 @@ public class PlayManager : MonoBehaviour
     public Coin coinPrefab; // Reference to the coin prefab
     void Start()
     {
-       coinPool= new ObjectPool<Coin>(coinPrefab , 65 ,105);
+       coinPool= new ObjectPool<Coin>(coinPrefab , 65 ,150);
         //Start game here 
         //Start BGM 
         //

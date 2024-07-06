@@ -4,13 +4,16 @@ using UnityEngine;
 
 public class Coin : MonoBehaviour ,IPoolable
 {
+    /// <summary>
+    /// Tracking State: The isOutOfView is a crucial flag that helps in tracking whether a coin has already been marked as out of view. This can prevent multiple checks and actions on the same coin, as the out-of-view check is performed frequently.
+    /// </summary>
     public bool isOutOfView;
     private CoinGenerator generator;
 
     public void OnSpawn()
     {
         // Reset the coin's state if needed
-        //isOutOfView = true;
+        isOutOfView = true;
     }
 
     public void OnDespawn()

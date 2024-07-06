@@ -9,6 +9,10 @@ public class TrapInfo
     public Vector3 positionOffset;
     public Vector3 rotationOffset;
     public Vector3 scaleOffset = Vector3.one;  // Default scale is 1
+    public bool canBeParkoured;
+    public GameObject parkourPickupPrefab;
+    public float distanceToPickup;
+    public AnimationClip parkourAnimation;
 }
 
 public class TrapGenerator : MonoBehaviour
@@ -36,9 +40,26 @@ public class TrapGenerator : MonoBehaviour
             TrapInfo selectedTrap = GetRandomTrapByWeight();
             if (selectedTrap != null)
             {
+                // Spawn the obstacle
                 GameObject trap = Instantiate(selectedTrap.trapPrefab, transform.position + selectedTrap.positionOffset, Quaternion.Euler(selectedTrap.rotationOffset));
                 trap.transform.localScale = selectedTrap.scaleOffset;
                 trap.transform.parent = transform;
+
+                // If the obstacle can be parkoured, spawn the parkour pickup
+                if (selectedTrap.canBeParkoured && selectedTrap.parkourPickupPrefab != null)
+                {
+                    Vector3 pickupPosition = transform.position + selectedTrap.positionOffset + new Vector3(selectedTrap.distanceToPickup, 0, 0);
+                    GameObject parkourPickup = Instantiate(selectedTrap.parkourPickupPrefab, pickupPosition, Quaternion.identity);
+                    parkourPickup.transform.parent = transform;
+
+                    // Set the parkour animation on the ParkourPickup script
+                    ParkourPickup parkourPickupScript = parkourPickup.GetComponent<ParkourPickup>();
+                    if (parkourPickupScript != null)
+                    {
+                      //  Debug.Log(selectedTrap.parkourAnimation);
+                        parkourPickupScript.parkourAnimation = selectedTrap.parkourAnimation;
+                    }
+                }
             }
         }
     }
@@ -88,6 +109,13 @@ public class TrapGenerator : MonoBehaviour
 
                     Gizmos.DrawWireMesh(meshFilter.sharedMesh, meshPosition, meshRotation, meshScale);
                 }
+            }
+
+            // Draw parkour pickup if the trap can be parkoured
+            if (trapInfo.canBeParkoured && trapInfo.parkourPickupPrefab != null)
+            {
+                Vector3 pickupPosition = basePosition + new Vector3(trapInfo.distanceToPickup, 0, 0);
+                Gizmos.DrawWireSphere(pickupPosition, 0.5f); // Represent pickup with a sphere for visualization
             }
         }
     }
