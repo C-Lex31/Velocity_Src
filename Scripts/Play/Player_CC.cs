@@ -222,7 +222,7 @@ public class Player_CC : MonoBehaviour
     {
         //Time.timeScale = 0.1f;
      //   ragdoll.RagdollStart();
-        PlayManager.instance.GameOver();
+      //  PlayManager.instance.GameOver();
         bFlatlined = true;
     }
     RaycastHit groundHit;

@@ -25,16 +25,20 @@ public class CameraFollow : MonoBehaviour
         limitUp = limitCameraUp - (Camera.main.ScreenToWorldPoint(new Vector3(Screen.width, Screen.height, Camera.main.transform.position.z * -1)).y - transform.position.y);
         limitBelow = limitCameraBelow + (transform.position.y - Camera.main.ScreenToWorldPoint(new Vector3(0, 0, Camera.main.transform.position.z * -1)).y);
     }
-    private void LateUpdate()
+    private void FixedUpdate()
     {
-        if(Player.instance.bFlatlined)return;
+
         offset = offsetPlayer;
+        if (Player.instance.bFlatlined)
+        {
+            offset = new Vector2(1, 1); //center the player 
+        }
         offset.z = transform.position.z;
 
         var finalPos = Player.instance.transform.position + offset;
         finalPos.y = Mathf.Clamp(finalPos.y, limitBelow, limitUp);
 
-        transform.position = Vector3.Lerp(transform.position, finalPos, 10 * Time.deltaTime);
+        transform.position = Vector3.Lerp(transform.position, finalPos, 6 * Time.deltaTime);
     }
 
     private void OnDrawGizmos()

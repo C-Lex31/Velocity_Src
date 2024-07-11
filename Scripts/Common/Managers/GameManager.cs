@@ -1,5 +1,6 @@
 
 using System.Collections;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -15,9 +16,12 @@ public class GameManager : Singleton<GameManager>
 {
 
     private SceneType sceneType = SceneType.None;
-    [HideInInspector] public int score;
-    [HideInInspector] public int coins;
-    [HideInInspector] public int distance;
+    [HideInInspector] public int score=0;
+    [HideInInspector] public int coins=0;
+    [HideInInspector] public int totalCoins=0;
+     [HideInInspector]public int performanceBonus=0;
+    [HideInInspector] public int distance=0;
+    [HideInInspector] public float TimeRan=0;
     [HideInInspector] public bool isSaveGameStart = false;
     private bool bLoadScene;
     public bool bIsTouch;
@@ -93,5 +97,17 @@ public class GameManager : Singleton<GameManager>
     {
         scene = SceneManager.GetActiveScene();
         return scene.name;
+    }
+
+    public void Save()
+    {
+
+        performanceBonus = (int)((distance * 0.1f) +(TimeRan * 0.1f));
+
+        // Apply performance modifier to ensure the bonus is always less than coins collected
+        performanceBonus = Mathf.FloorToInt(Mathf.Min(performanceBonus, coins * 0.5f));
+
+        totalCoins=coins + Mathf.FloorToInt(performanceBonus);
+        SaveGame.SaveProgress();
     }
 }

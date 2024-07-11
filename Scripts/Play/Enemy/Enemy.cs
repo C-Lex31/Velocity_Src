@@ -202,7 +202,7 @@ public class Enemy : MonoBehaviour
         ragdoll.RagdollStart();
         bFlatlined = true;
         yield return new WaitForSeconds(2.5f);
-        PlayManager.instance.GameOver();
+       // PlayManager.instance.GameOver();
     }
     RaycastHit groundHit;
 

@@ -88,7 +88,7 @@ public class ItemGenerator : MonoBehaviour
         foreach (var powerupInfo in powerupSpawnInfos)
         {
             cumulativeWeight += powerupInfo.spawnWeight;
-            if (randomValue <= cumulativeWeight)
+            if (randomValue < cumulativeWeight)
             {
                 GameObject powerupPrefab = powerupInfo.powerupPrefab;
                 Instantiate(powerupPrefab, transform.position, Quaternion.identity);
@@ -120,7 +120,7 @@ public class ItemGenerator : MonoBehaviour
         foreach (var collectibleInfo in collectibleSpawnInfos)
         {
             cumulativeWeight += collectibleInfo.spawnWeight;
-            if (randomValue <= cumulativeWeight)
+            if (randomValue < cumulativeWeight)
             {
                 GameObject collectiblePrefab = collectibleInfo.collectiblePrefab;
                 spawnedItem=Instantiate(collectiblePrefab, transform.position, Quaternion.identity);

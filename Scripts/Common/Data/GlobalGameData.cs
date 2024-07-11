@@ -23,5 +23,13 @@ public class GlobalGameData : MonoBehaviour
          //   PlayManager.Instance.commonUI._CoinGem.SetCoin();
         }
     }
+        public static int Key {
+        get { return PlayerPrefs.GetInt("Key", 0); }
+        set {
+            PlayerPrefs.SetInt("Key", value);
+            //PlayManager.Instance.commonUI._CoinGem.SetCoin();
+        }
+    }
+
 
 }

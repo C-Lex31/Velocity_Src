@@ -18,7 +18,7 @@ public class Player : MonoBehaviour
 
     private Animator animator;
 
-    public CapsuleCollider Capsule { get; private set; }
+    private CapsuleCollider Capsule;
 
     private static Player _instance;
     public static Player instance
@@ -72,7 +72,7 @@ public class Player : MonoBehaviour
     [SerializeField] private float slideTime;
     [SerializeField] private float slideCooldown;
     [SerializeField] private float slidingCapsultHeight = 0.8f;
-    private bool bIsSliding;
+    [HideInInspector] public bool bIsSliding;
     private float slideTimeCounter;
     private float slideCooldownCounter;
 
@@ -133,7 +133,7 @@ public class Player : MonoBehaviour
         }
         else
         {
-            // slideTimeCounter -= Time.deltaTime;
+
             slideCooldownCounter -= Time.deltaTime;
             CheckCollision();
             HandleMovement();
@@ -149,8 +149,11 @@ public class Player : MonoBehaviour
             bCanDoubleJump = true;
             gravityModifier = 1;
         }
-        else CheckRopeInZone(); //Only check for rope point when in air
-
+        else
+        {
+            CheckBounds();
+            CheckRopeInZone(); //Only check for rope point when in air
+        }
         UpdateAnimatorValues();
         CheckForSlideCancel();
         ropeRenderer.enabled = bIsGrabingRope;
@@ -159,7 +162,8 @@ public class Player : MonoBehaviour
     }
     void FixedUpdate()
     {
-        if (rb && bApplyGravity)
+        if (bFlatlined) return;
+        if (rb && bApplyGravity && climbingState == ClimbingState.None)
         {
             Vector3 gravity = globalGravity * gravityScale * gravityModifier * Vector3.up;
             rb.AddForce(gravity, ForceMode.Acceleration);
@@ -179,6 +183,8 @@ public class Player : MonoBehaviour
         animator.SetBool("bWallHit", bWallDetected);
         if (rb.velocity.y < -20)
             animator.SetBool("bCanRoll", true);
+
+
     }
 
     void PollInput()
@@ -197,7 +203,7 @@ public class Player : MonoBehaviour
             HandleDeath();
             return;
         }
-        if (climbingState == ClimbingState.ClimbingLedge) return;
+        if (climbingState != ClimbingState.None) return;
         transform.forward = new Vector3(horizontalInput, 0, 0);
         float targetVelocityX = bIsSliding ? slideSpeed : moveSpeed * horizontalInput;
 
@@ -207,24 +213,37 @@ public class Player : MonoBehaviour
         rb.velocity = velocity;
 
     }
+    void CheckBounds()
+    {
+        if (transform.position.y + Capsule.height < Camera.main.ScreenToWorldPoint(new Vector3(0, 0, 10)).y)
+            HandleDeath();
+    }
     void Flip()
     {
         horizontalInput *= -1;
     }
-    void HandleDeath(float force = 0)
+    void HandleDeath()
     {
-        //Time.timeScale = 0.1f;
+        bWallDetected = false;
+        rb.velocity = new Vector2(0, 0);
+        ragdoll.RagdollStart();
+        bApplyGravity = false;
+        bFlatlined = true;
         StartCoroutine(DeathCo());
     }
     IEnumerator DeathCo()
     {
-        ragdoll.RagdollStart();
-        bFlatlined = true;
-        yield return new WaitForSeconds(2.5f);
-        PlayManager.instance.GameOver();
+        yield return new WaitForSeconds(2f);
+        PlayManager.instance.GameOver(true);
     }
     RaycastHit groundHit;
+    public void Revive(Transform RevivePos)
+    {
 
+        ragdoll.RagdollReset();
+        bApplyGravity = true;
+        bFlatlined = false;
+    }
     void CheckCollision()
     {
         if (climbingState != ClimbingState.None || animator.hasRootMotion) return;
@@ -364,13 +383,7 @@ public class Player : MonoBehaviour
         slideTimeCounter = slideTime;
         slideCooldownCounter = slideCooldown;
 
-
-        Capsule.height = slidingCapsultHeight;
-
-        var _center = Capsule.center;
-        _center.y = slidingCapsultHeight * 0.5f;
-
-        Capsule.center = _center;
+        ScaleCapsule();
     }
 
     void OnSlideEnd()
@@ -378,31 +391,37 @@ public class Player : MonoBehaviour
         if (!bIsSliding)
             return;
 
-        Capsule.height = originalCharHeight;
-        var _center = Capsule.center;
-        _center.y = originalCharCenterY;
-        Capsule.center = _center;
         bIsSliding = false;
+        ScaleCapsule(true);
     }
     public void RollEnd()
     {
-        Capsule.height = originalCharHeight;
-        var _center = Capsule.center;
-        _center.y = originalCharCenterY;
-        Capsule.center = _center;
+        ScaleCapsule(true);
         animator.SetBool("bCanRoll", false);
     }
     public void RollStarted()
     {
-        Capsule.height = slidingCapsultHeight;
-
-        var _center = Capsule.center;
-        _center.y = slidingCapsultHeight * 0.5f;
-
-        Capsule.center = _center;
+        ScaleCapsule();
     }
 
-
+    void ScaleCapsule(bool bReset = false)
+    {
+        if (bReset)
+        {
+            Capsule.height = originalCharHeight;
+            var _center = Capsule.center;
+            _center.y = originalCharCenterY;
+            Capsule.center = _center;
+            animator.SetBool("bCanRoll", false);
+        }
+        else
+        {
+            Capsule.height = slidingCapsultHeight;
+            var _center = Capsule.center;
+            _center.y = slidingCapsultHeight * 0.5f;
+            Capsule.center = _center;
+        }
+    }
     void DoubleJumpStart()
     {
         animator.SetBool("bLockDoubleJump", true);
@@ -419,7 +438,7 @@ public class Player : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
 
-        if (other.gameObject.tag == "Deadzone")
+        if (other.gameObject.tag == "Deadzone" && !bFlatlined)
             HandleDeath();
     }
 
@@ -663,19 +682,26 @@ public class Player : MonoBehaviour
         bIsGrabingRope = false;
     }
 
-    public void TriggerParkourAnimation(AnimationClip animClip)
+    public void TriggerParkourAnimation(AnimationClip animClip, float transitionTime = 0.2f, bool bScaleCapsule = false)
     {
         Debug.Log(animClip.name);
         climbingState = ClimbingState.Parkour;
         animator.applyRootMotion = true;
-        //animator.GetCurrentAnimatorStateInfo(0).
-        animator.Play(animClip.name);
+        animator.SetLayerWeight(1, 1);
+        animator.CrossFadeInFixedTime(animClip.name, transitionTime, 1);
+        Capsule.enabled = false;
+        rb.isKinematic = true;
 
+        StartCoroutine(EndParkourState(animator.GetCurrentAnimatorStateInfo(1).length));
     }
-    void AN_FinishParkour()
+    IEnumerator EndParkourState(float t)
     {
+        yield return new WaitForSeconds(t);
         climbingState = ClimbingState.None;
         animator.applyRootMotion = false;
+        Capsule.enabled = true;
+        rb.isKinematic = false;
+        // animator.SetLayerWeight(1, 0);
     }
     private void OnDrawGizmosSelected()
     {

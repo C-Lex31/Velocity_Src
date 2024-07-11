@@ -51,8 +51,7 @@ public class PopupPause : MonoBehaviour
     {
         SoundManager.Instance.PlayEffect(SoundList.sound_common_btn_in);
         SoundManager.Instance.StopBGM();
-        PlayManager.instance.bIsGameOver = true;
-        GameManager.Instance.LoadScene(Data.scene_result);
+       PlayManager.instance.GameOver();
 
     }
 

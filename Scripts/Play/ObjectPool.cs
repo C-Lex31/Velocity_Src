@@ -79,10 +79,11 @@ public class ObjectPool<T> where T : Component
         return activeObjects.Contains(obj);
     }
 
+    public IEnumerable<T> ActiveObjects => activeObjects;
+
     private void CleanupUnusedObjects()
     {
-
-        while (objects.Count > 0 && Time.time - objects.Peek().returnTime > maxIdleTime )
+        while (objects.Count > 0 && Time.time - objects.Peek().returnTime > maxIdleTime)
         {
             (T obj, float returnTime) = objects.Dequeue();
             Debug.Log($"CLEANING UP {obj} (Idle time: {Time.time - returnTime} seconds)");

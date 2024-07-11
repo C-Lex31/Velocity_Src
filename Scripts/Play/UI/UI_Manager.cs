@@ -1,7 +1,7 @@
-
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class UI_Manager : MonoBehaviour
 {
@@ -14,28 +14,39 @@ public class UI_Manager : MonoBehaviour
             {
                 _instance = FindObjectOfType<UI_Manager>();
             }
-
             return _instance;
         }
     }
+
     [SerializeField] private TextMeshProUGUI distanceText;
     [SerializeField] private TextMeshProUGUI coinsText;
 
+    [SerializeField] private Transform consumablePanel;
+    [SerializeField] private GameObject consumableUIPrefab;
 
     public PopupPause _PopupPause;
     public PopupContinue _PopupContinue;
     private float distance;
     private int coins;
+    private int timeRan;
 
-    // Start is called before the first frame update
+    private Dictionary<string, ConsumableUI> activeConsumableUI = new Dictionary<string, ConsumableUI>();
+
+    void Awake()
+    {
+        _PopupPause.UIReset();
+        _PopupContinue.UIReset();
+    }
     void Start()
     {
         InvokeRepeating("UpdateInfo", 0, .2f);
     }
+
     private void UpdateInfo()
     {
-        distance = PlayManager.instance.distance;
-        coins = PlayManager.instance.coins;
+        distance = GameManager.Instance.distance;
+        coins = GameManager.Instance.coins;
+        GameManager.Instance.score = Mathf.RoundToInt((1f * distance) + (0.5f * coins) + (0.5f * timeRan));
         if (distance > 0)
             distanceText.text = distance.ToString("#,#") + "  m";
 
@@ -43,7 +54,37 @@ public class UI_Manager : MonoBehaviour
             coinsText.text = coins.ToString("#,#");
     }
 
+    public void AddOrUpdateConsumableUI(string consumableName, Sprite icon, float duration)
+    {
+        if (activeConsumableUI.ContainsKey(consumableName))
+        {
+            activeConsumableUI[consumableName].ResetDuration(duration);
+        }
+        else
+        {
+            GameObject newConsumableUI = Instantiate(consumableUIPrefab, consumablePanel);
+            ConsumableUI consumableUI = newConsumableUI.GetComponent<ConsumableUI>();
+            consumableUI.Initialize(icon, duration);
+            activeConsumableUI.Add(consumableName, consumableUI);
+        }
+    }
 
+    public void UpdateConsumableUI(string consumableName, float timeRemaining)
+    {
+        if (activeConsumableUI.ContainsKey(consumableName))
+        {
+            activeConsumableUI[consumableName].UpdateSlider(timeRemaining);
+        }
+    }
+
+    public void RemoveConsumableUI(string consumableName)
+    {
+        if (activeConsumableUI.ContainsKey(consumableName))
+        {
+            Destroy(activeConsumableUI[consumableName].gameObject);
+            activeConsumableUI.Remove(consumableName);
+        }
+    }
 
     public void Click_Pause()
     {

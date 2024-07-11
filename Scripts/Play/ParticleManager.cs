@@ -27,6 +27,7 @@ public class ParticleManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
+        
     }
 
     private void InitializeParticlePools()
@@ -50,25 +51,36 @@ public class ParticleManager : MonoBehaviour
 
     public void PlayParticleEffect(string effectName, Vector3 position, Quaternion rotation)
     {
+        ParticleSystem particle;
 
         if (particlePools.ContainsKey(effectName))
         {
-            ParticleSystem particle = particlePools[effectName].GetObject();
-            particle.transform.position = position;
-            particle.transform.rotation = rotation;
-            particle.gameObject.SetActive(true);
-            particle.Play();
-
-            StartCoroutine(DisableParticleAfterDuration(effectName, particle));
+            particle = particlePools[effectName].GetObject();
         }
         else
         {
-            ParticleSystem particle = Instantiate(Resources.Load<ParticleSystem>(string.Format("{0}{1}", Data.path_particles, effectName)));//Have to Instantiate the particle before it can be used as it is loaded as a prefab.
-            particle.transform.position = position;
-            particle.transform.rotation = rotation;
-            particle.gameObject.SetActive(true);
-            particle.Play();
-            Destroy(particle.gameObject, particle.main.startLifetime.constantMax);
+            particle = Instantiate(Resources.Load<ParticleSystem>(string.Format("{0}{1}", Data.path_particles, effectName)));
+            if (particle == null)
+            {
+                Debug.LogWarning("Particle effect " + effectName + " not found!");
+                return;
+            }
+        }
+
+        particle.transform.position = position;
+        particle.transform.rotation = rotation;
+        particle.gameObject.SetActive(true);
+        particle.Play();
+
+        if (particle.main.loop)
+        {
+            // For looping particles, you will need to manually stop them later
+            StartCoroutine(DisableLoopingParticle(effectName, particle));
+        }
+        else
+        {
+            // For non-looping particles, disable after duration
+            StartCoroutine(DisableParticleAfterDuration(effectName, particle));
         }
     }
 
@@ -78,8 +90,16 @@ public class ParticleManager : MonoBehaviour
 
         particle.Stop();
         particle.gameObject.SetActive(false);
-        particlePools[effectName].ReturnObject(particle);
+        if (particlePools.ContainsKey(effectName))
+        {
+            particlePools[effectName].ReturnObject(particle);
+        }
+        else
+        {
+            Destroy(particle.gameObject);
+        }
     }
+
     private IEnumerator DisableLoopingParticle(string effectName, ParticleSystem particle)
     {
         // This coroutine waits until the particle system is manually stopped
@@ -95,6 +115,7 @@ public class ParticleManager : MonoBehaviour
             Destroy(particle.gameObject);
         }
     }
+
     public void StopAllParticleEffects(string effectName)
     {
         if (particlePools.ContainsKey(effectName))

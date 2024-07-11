@@ -1,33 +1,27 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public abstract class ConsumableBase : MonoBehaviour
 {
     public float duration = 5f;
-
+    public Sprite icon; // Icon for the consumable
+    public string consumableName; // Unique name for the consumable
 
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player"))
         {
-       
-            if (Player.instance != null)
+            if (Player.instance != null && !Player.instance.bFlatlined)
             {
+                
                 ActivatePowerUp();
-                StartCoroutine(DeactivatePowerUpAfterDuration());
+                if (duration > 0)
+                    PlayManager.instance.ActivateConsumable(consumableName, duration, icon, this);
+                gameObject.GetComponent<Renderer>().enabled = false;
             }
         }
     }
 
     protected abstract void ActivatePowerUp();
-
-    private IEnumerator DeactivatePowerUpAfterDuration()
-    {
-        yield return new WaitForSeconds(duration);
-        DeactivatePowerUp();
-        Destroy(gameObject); // Destroy the power-up after it has been used
-    }
-
-    protected abstract void DeactivatePowerUp();
+    public abstract void DeactivatePowerUp();
 }

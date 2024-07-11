@@ -3,10 +3,22 @@ using System.Collections.Generic;
 
 public class LevelGenerator : MonoBehaviour
 {
-    [SerializeField] private Transform levelStart;
+    static LevelGenerator _instance;
+    public static LevelGenerator instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindObjectOfType<LevelGenerator>();
+            }
+            return _instance;
+        }
+    }
     [SerializeField] private Transform[] easyLevelSegments;
     [SerializeField] private Transform[] mediumLevelSegments;
     [SerializeField] private Transform[] hardLevelSegments;
+    [SerializeField] private Transform specialLevelSegment; // Reference to the special level segment
     [SerializeField] private float distanceToSpawn = 10f;
     [SerializeField] private float distanceToDelete = 20f;
 
@@ -28,9 +40,7 @@ public class LevelGenerator : MonoBehaviour
 
     void Start()
     {
-        nextSegmentPosition = levelStart.Find("EndPoint").position;
-        SpawnInitialSegments();
-        currentSegment = activeSegments.Peek();
+
     }
 
     void Update()
@@ -39,13 +49,7 @@ public class LevelGenerator : MonoBehaviour
         GenerateSegment();
     }
 
-    private void SpawnInitialSegments()
-    {
-        for (int i = 0; i < 3; i++)
-        {
-           // GenerateSegment();
-        }
-    }
+
 
     private void GenerateSegment()
     {
@@ -136,5 +140,27 @@ public class LevelGenerator : MonoBehaviour
             list[i] = list[j];
             list[j] = temp;
         }
+    }
+    public void ClearOldSegments()
+    {
+        while (activeSegments.Count > 0)
+        {
+            Transform segmentToDelete = activeSegments.Dequeue();
+            Destroy(segmentToDelete.gameObject);
+        }
+
+
+    }
+    public Transform SpawnSafeSegment()
+    {
+        Vector2 newPosition = new Vector2(Player.instance.transform.position.x, 0);
+        Transform newSegment = Instantiate(specialLevelSegment, newPosition, transform.rotation, transform);
+      //  Debug.Log(RevivePos);
+        nextSegmentPosition = newSegment.Find("EndPoint").position;
+        activeSegments.Enqueue(newSegment);
+        currentSegment = newSegment;
+
+        // Return the child transform used for player positioning
+        return newSegment.Find("RevivePosition");
     }
 }

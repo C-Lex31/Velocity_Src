@@ -12,7 +12,7 @@ public class TrapInfo
     public bool canBeParkoured;
     public GameObject parkourPickupPrefab;
     public float distanceToPickup;
-    public AnimationClip parkourAnimation;
+
 }
 
 public class TrapGenerator : MonoBehaviour
@@ -51,14 +51,6 @@ public class TrapGenerator : MonoBehaviour
                     Vector3 pickupPosition = transform.position + selectedTrap.positionOffset + new Vector3(selectedTrap.distanceToPickup, 0, 0);
                     GameObject parkourPickup = Instantiate(selectedTrap.parkourPickupPrefab, pickupPosition, Quaternion.identity);
                     parkourPickup.transform.parent = transform;
-
-                    // Set the parkour animation on the ParkourPickup script
-                    ParkourPickup parkourPickupScript = parkourPickup.GetComponent<ParkourPickup>();
-                    if (parkourPickupScript != null)
-                    {
-                      //  Debug.Log(selectedTrap.parkourAnimation);
-                        parkourPickupScript.parkourAnimation = selectedTrap.parkourAnimation;
-                    }
                 }
             }
         }

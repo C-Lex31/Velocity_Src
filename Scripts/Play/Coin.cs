@@ -1,8 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 
-public class Coin : MonoBehaviour ,IPoolable
+public class Coin : MonoBehaviour, IPoolable
 {
     /// <summary>
     /// Tracking State: The isOutOfView is a crucial flag that helps in tracking whether a coin has already been marked as out of view. This can prevent multiple checks and actions on the same coin, as the out-of-view check is performed frequently.
@@ -13,7 +14,7 @@ public class Coin : MonoBehaviour ,IPoolable
     public void OnSpawn()
     {
         // Reset the coin's state if needed
-        isOutOfView = true;
+        isOutOfView =false;
     }
 
     public void OnDespawn()
@@ -26,10 +27,11 @@ public class Coin : MonoBehaviour ,IPoolable
 
         if (collision.GetComponent<Player>() != null)
         {
-           
 
-            PlayManager.instance.coins++;
+
+            GameManager.Instance.coins++;
             SoundManager.Instance.PlayEffect(SoundList.sound_play_common_sfx_coincollect);
+            ParticleManager.instance.PlayParticleEffect(ParticleList.coin_collect, transform.position, quaternion.identity);
             generator.ReturnCoin(this);
         }
     }
@@ -38,7 +40,7 @@ public class Coin : MonoBehaviour ,IPoolable
     /// The primary issue that led to this solution was the shared state across multiple instances when using the static Instance approach. By switching to a direct reference method, each coin reliably communicates with its parent generator, ensuring correct removal and pooling behavior. This approach scales correctly with multiple CoinGenerator instances and avoids conflicts and incorrect references inherent in the singleton pattern for this use case.
     /// </summary>
     /// <param name="gen"></param>
-        public void SetGenerator(CoinGenerator gen)
+    public void SetGenerator(CoinGenerator gen)
     {
         generator = gen;
     }

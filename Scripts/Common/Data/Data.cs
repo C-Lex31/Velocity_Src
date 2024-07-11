@@ -19,7 +19,7 @@ public class Data : MonoBehaviour
 
     //Sound File Path
     public static string path_sound = "Audio/";
-
+    public static string path_particles= "Particles/";
     //SceneLoad
     public static string scene_splash = "0_Splash";
     public static string scene_title = "1_Title";

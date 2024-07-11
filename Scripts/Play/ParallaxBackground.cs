@@ -39,7 +39,7 @@ public class ParallaxBackground : MonoBehaviour
     }
 
 
-    void LateUpdate()
+    void FixedUpdate()
     {
         Vector3 position = startPosition;
         if (horizontalOnly)

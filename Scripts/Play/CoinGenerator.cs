@@ -9,7 +9,8 @@ public class CoinGenerator : MonoBehaviour
     [Range(1, 10)] public int maxCoins = 7; // Maximum number of coins to spawn
     public float spacing = 1.0f; // Spacing between coins
     public Vector3 offset = Vector3.zero; // Offset to start spawning coins
-    
+    public float parabolaHeight = 2.0f; // Height of the parabola
+
     [Header("Coin Deactivation Settings")]
     public float destroyDelay = 0.8f; // Time to wait before deactivating the coin after it goes out of view
     private float startCheckDelay = 0.5f; // Delay before starting the out-of-view check
@@ -30,14 +31,24 @@ public class CoinGenerator : MonoBehaviour
         int numberOfCoins = Random.Range(minCoins, maxCoins + 1);
         Vector3 spawnPosition = transform.position + offset;
 
+        // Calculate the horizontal distance from the center to the left and right edges
+        float halfWidth = (numberOfCoins - 1) * spacing / 2.0f;
+
         for (int i = 0; i < numberOfCoins; i++)
         {
+            // Calculate the horizontal position relative to the center
+            float x = i * spacing - halfWidth;
+
+            // Calculate the vertical position using a parabolic function
+            float y = parabolaHeight - Mathf.Pow(x / halfWidth, 2) * parabolaHeight;
+
+            Vector3 coinPosition = spawnPosition + new Vector3(x, y, 0);
+
             Coin coin = coinPool.GetObject();
             coin.gameObject.SetActive(true);
-            coin.transform.position = spawnPosition;
+            coin.transform.position = coinPosition;
             coin.SetGenerator(this);
             activeCoins.Add(coin);
-            spawnPosition += new Vector3(spacing, 0, 0);
         }
 
         StartCoroutine(CheckCoinsOutOfViewAfterDelay(startCheckDelay));
@@ -96,10 +107,14 @@ public class CoinGenerator : MonoBehaviour
         int numberOfCoins = Mathf.Max(minCoins, maxCoins);
         Vector3 gizmoPosition = transform.position + offset;
 
+        float halfWidth = (numberOfCoins - 1) * spacing / 2.0f;
+
         for (int i = 0; i < numberOfCoins; i++)
         {
-            Gizmos.DrawWireSphere(gizmoPosition, 0.5f);
-            gizmoPosition += new Vector3(spacing, 0, 0);
+            float x = i * spacing - halfWidth;
+            float y = parabolaHeight - Mathf.Pow(x / halfWidth, 2) * parabolaHeight;
+            Vector3 coinPosition = gizmoPosition + new Vector3(x, y, 0);
+            Gizmos.DrawWireSphere(coinPosition, 0.5f);
         }
     }
 }

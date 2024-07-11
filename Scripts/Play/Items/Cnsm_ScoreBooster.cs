@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Cnsm_CoinMagnet : ConsumableBase
+public class Cnsm_ScoreBooster: ConsumableBase
 {
     public float magnetRadius = 5f; // Radius within which coins are attracted
     public float magnetForce = 10f; // Speed at which coins move toward the player
@@ -11,8 +11,6 @@ public class Cnsm_CoinMagnet : ConsumableBase
 
     protected override void ActivatePowerUp()
     {
-        ParticleManager.instance.PlayParticleEffect(ParticleList.item_collect , transform.position ,Quaternion.identity);
-
         isMagnetActive = true;
     }
 
@@ -25,7 +23,7 @@ public class Cnsm_CoinMagnet : ConsumableBase
     {
         if (isMagnetActive)
         {
-            AttractCoins();
+           // AttractCoins();
         }
     }
 
