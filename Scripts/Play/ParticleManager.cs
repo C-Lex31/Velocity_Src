@@ -49,7 +49,7 @@ public class ParticleManager : MonoBehaviour
         }
     }
 
-    public void PlayParticleEffect(string effectName, Vector3 position, Quaternion rotation)
+    public void PlayParticleEffect(string effectName, Vector3 position, Quaternion rotation )
     {
         ParticleSystem particle;
 

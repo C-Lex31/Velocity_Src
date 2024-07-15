@@ -104,7 +104,7 @@ public class PlayManager : MonoBehaviour
             GameManager.Instance.Save();
         }
     }
-    private void ClearAllIndependentObjects()
+    public void ClearAllIndependentObjects()
     {
         Coin[] coins = GameObject.FindObjectsOfType<Coin>();
         foreach (Coin coin in coins)

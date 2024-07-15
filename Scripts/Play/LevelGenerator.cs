@@ -1,5 +1,6 @@
-using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 
 public class LevelGenerator : MonoBehaviour
 {
@@ -15,9 +16,7 @@ public class LevelGenerator : MonoBehaviour
             return _instance;
         }
     }
-    [SerializeField] private Transform[] easyLevelSegments;
-    [SerializeField] private Transform[] mediumLevelSegments;
-    [SerializeField] private Transform[] hardLevelSegments;
+
     [SerializeField] private Transform specialLevelSegment; // Reference to the special level segment
     [SerializeField] private float distanceToSpawn = 10f;
     [SerializeField] private float distanceToDelete = 20f;
@@ -30,47 +29,23 @@ public class LevelGenerator : MonoBehaviour
     private int shuffledIndex = 0;
 
     private Transform currentSegment;
-
-    private enum LevelDifficulty
+    [SerializeField] private Transform[] initialLevelSegments;
+    private void Start()
     {
-        Easy,
-        Medium,
-        Hard
+        levelSegments = initialLevelSegments;
+        TeleportSystem.instance.OnThemeChanged += OnThemeChanged; // Subscribe to the theme change event
     }
 
-    void Start()
-    {
-
-    }
-
-    void Update()
+    private void Update()
     {
         DeleteSegment();
         GenerateSegment();
     }
 
-
-
     private void GenerateSegment()
     {
         while (Vector2.Distance(Player.instance.transform.position, nextSegmentPosition) < distanceToSpawn)
         {
-            switch (GetLevelDifficulty())
-            {
-                case LevelDifficulty.Easy:
-                    levelSegments = easyLevelSegments;
-                    break;
-                case LevelDifficulty.Medium:
-                    levelSegments = mediumLevelSegments;
-                    break;
-                case LevelDifficulty.Hard:
-                    levelSegments = hardLevelSegments;
-                    break;
-                default:
-                    levelSegments = easyLevelSegments;
-                    break;
-            }
-
             if (shuffledLevelSegments == null || shuffledLevelSegments.Count != levelSegments.Length)
             {
                 shuffledLevelSegments = new List<Transform>(levelSegments);
@@ -124,13 +99,6 @@ public class LevelGenerator : MonoBehaviour
         }
     }
 
-    private LevelDifficulty GetLevelDifficulty()
-    {
-        // if (levelSpawnCount >= 10) return LevelDifficulty.Hard;
-        // if (levelSpawnCount >= 5) return LevelDifficulty.Medium;
-        return LevelDifficulty.Easy;
-    }
-
     private void Shuffle(List<Transform> list)
     {
         for (int i = list.Count - 1; i > 0; i--)
@@ -141,6 +109,7 @@ public class LevelGenerator : MonoBehaviour
             list[j] = temp;
         }
     }
+
     public void ClearOldSegments()
     {
         while (activeSegments.Count > 0)
@@ -148,19 +117,30 @@ public class LevelGenerator : MonoBehaviour
             Transform segmentToDelete = activeSegments.Dequeue();
             Destroy(segmentToDelete.gameObject);
         }
-
-
     }
+
     public Transform SpawnSafeSegment()
     {
         Vector2 newPosition = new Vector2(Player.instance.transform.position.x, 0);
         Transform newSegment = Instantiate(specialLevelSegment, newPosition, transform.rotation, transform);
-      //  Debug.Log(RevivePos);
         nextSegmentPosition = newSegment.Find("EndPoint").position;
         activeSegments.Enqueue(newSegment);
         currentSegment = newSegment;
 
         // Return the child transform used for player positioning
         return newSegment.Find("RevivePosition");
+    }
+
+    private void OnThemeChanged(Theme newTheme , ref Portal po)
+    {
+        PlayManager.instance.ClearAllIndependentObjects();
+        levelSegments = newTheme.levelSegments;
+        Debug.Log(po);
+        po.gameObject.transform.position = levelSegments[0].Find("PortalStart").position;
+        po.gameObject.transform.SetParent(null);
+        Player.instance.transform.position =  new Vector2( po.gameObject.transform.position.x+0.5f,po.gameObject.transform.position.y);
+       Camera.main.transform.position = new Vector3(Player.instance.transform.position.x ,Player.instance.transform.position.y, Camera.main.transform.position.z) ;
+        ClearOldSegments();
+        nextSegmentPosition = Vector3.zero; // Reset the next segment position
     }
 }

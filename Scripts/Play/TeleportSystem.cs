@@ -9,8 +9,7 @@ public class TeleportSystem : MonoBehaviour
 
     [SerializeField] private List<Theme> themes;
     [SerializeField] private Image fadeImage;
-    [SerializeField] private float fadeDuration = 1.0f;
-    [SerializeField] private ParticleSystem warpEffect;
+    [SerializeField] private float warpDuration = 1.0f;
     [SerializeField] private Transform themeBackground;
     public Material warpMaterial;
     private int currentThemeIndex = 0;
@@ -64,65 +63,45 @@ public class TeleportSystem : MonoBehaviour
 
     private IEnumerator TeleportCoroutine(Portal po)
     {
-        // Play warp effect
-        /*warpEffect.Play();
 
-        // Fade to black
-        float elapsedTime = 0f;
-        Color color = fadeImage.color;
-        while (elapsedTime < fadeDuration)
-        {
-            elapsedTime += Time.deltaTime;
-            color.a = Mathf.Clamp01(elapsedTime / fadeDuration);
-            fadeImage.color = color;
-            yield return null;
-        }*/
-        // Start the warp effect
         Player.instance.Teleport(true);
-        this.po =po;
+        this.po = po;
         yield return new WaitForSeconds(0.7f);
         warpMaterial.SetFloat("_WarpStrength", 0);
         float elapsedTime = 0;
 
-        while (elapsedTime < fadeDuration)
+        while (elapsedTime < warpDuration)
         {
             elapsedTime += Time.deltaTime;
-            
-            warpMaterial.SetFloat("_WarpStrength", elapsedTime / fadeDuration);
+
+            warpMaterial.SetFloat("_WarpStrength", elapsedTime / warpDuration);
 
             yield return null;
         }
 
         // Change the theme
         int themeIndex = GetNextThemeIndex();
-        
         ApplyTheme(themes[themeIndex]);
-
-        // Fade back in
-        /*elapsedTime = 0f;
-        while (elapsedTime < fadeDuration)
-        {
-            elapsedTime += Time.deltaTime;
-            color.a = 1f - Mathf.Clamp01(elapsedTime / fadeDuration);
-            fadeImage.color = color;
-            yield return null;
-        }*/
+        po.gameObject.SetActive(false);
         // End the warp effect
-        elapsedTime = fadeDuration;
+        elapsedTime = warpDuration;
         while (elapsedTime > 0)
         {
             elapsedTime -= Time.deltaTime;
-            warpMaterial.SetFloat("_WarpStrength", elapsedTime / fadeDuration);
+            warpMaterial.SetFloat("_WarpStrength", elapsedTime / warpDuration);
             yield return null;
         }
-        this.po.Appear();
         warpMaterial.SetFloat("_WarpStrength", 0);
+        po.gameObject.SetActive(true);
+        this.po.Appear();
+
+        yield return new WaitForSeconds(0.3f);//slight delay to allow portal to open fully
         Player.instance.Teleport(false);
     }
 
     private void ApplyTheme(Theme theme)
     {
-        // Change the background
+
 
         //  Deactivate all backgrounds
         foreach (Transform background in themeBackground)
@@ -143,6 +122,6 @@ public class TeleportSystem : MonoBehaviour
 
 
         // Notify LevelGenerator about the theme change
-        OnThemeChanged?.Invoke(theme, ref po );
+        OnThemeChanged?.Invoke(theme, ref po);
     }
 }

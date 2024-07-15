@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEditor.Experimental.GraphView;
 
 
@@ -243,6 +244,24 @@ public class Player : MonoBehaviour
         ragdoll.RagdollReset();
         bApplyGravity = true;
         bFlatlined = false;
+    }
+    public void Teleport(bool start = true)
+    {
+        if (start)
+        {
+            bApplyGravity = false;
+            rb.velocity = new Vector2(0, 0);
+            rb.isKinematic = true;
+            ParticleManager.instance.PlayParticleEffect(ParticleList.teleport,new Vector2(transform.position.x,transform.position.y+1),Quaternion.identity);
+            gameObject.SetActive(false);
+        }
+        else
+        {
+            rb.isKinematic = false;
+            gameObject.SetActive(true);
+            bApplyGravity = true;
+        }
+
     }
     void CheckCollision()
     {

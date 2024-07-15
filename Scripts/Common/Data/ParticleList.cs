@@ -11,4 +11,5 @@ public class ParticleList
     public static string fire = "fire";
     public static string sparkles = "sparkles";
     public static string ground_hit_hard = "CFXR2 Ground Hit";
+     public static string teleport = "CFXR Impact Glowing HDR (Blue)";
 }
