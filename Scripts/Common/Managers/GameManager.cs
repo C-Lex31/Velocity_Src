@@ -16,17 +16,30 @@ public class GameManager : Singleton<GameManager>
 {
 
     private SceneType sceneType = SceneType.None;
-    [HideInInspector] public int score=0;
-    [HideInInspector] public int coins=0;
-    [HideInInspector] public int totalCoins=0;
-     [HideInInspector]public int performanceBonus=0;
-    [HideInInspector] public int distance=0;
-    [HideInInspector] public float TimeRan=0;
+    [HideInInspector] public int score = 0;
+    [HideInInspector] public int coins = 0;
+    [HideInInspector] public int totalCoins = 0;
+    [HideInInspector] public int performanceBonus = 0;
+    [HideInInspector] public int distance = 0;
+    [HideInInspector] public float TimeRan = 0;
     [HideInInspector] public bool isSaveGameStart = false;
+    [HideInInspector] public CommonUI commonUI;
     private bool bLoadScene;
     public bool bIsTouch;
     private Scene scene;
+  
 
+
+    void Awake()
+    {
+        if (!commonUI)
+        {
+            GameObject obj = (GameObject)Instantiate(Resources.Load("CommonUI"), Vector3.zero, Quaternion.identity);
+            commonUI = obj.GetComponent<CommonUI>();
+            commonUI.transform.SetParent(transform, false);
+            commonUI.GetComponent<Canvas>().worldCamera = Camera.main;
+        }
+    }
     void Start()
     {
 
@@ -102,12 +115,12 @@ public class GameManager : Singleton<GameManager>
     public void Save()
     {
 
-        performanceBonus = (int)((distance * 0.1f) +(TimeRan * 0.1f));
+        performanceBonus = (int)((distance * 0.1f) + (TimeRan * 0.1f));
 
         // Apply performance modifier to ensure the bonus is always less than coins collected
         performanceBonus = Mathf.FloorToInt(Mathf.Min(performanceBonus, coins * 0.5f));
 
-        totalCoins=coins + Mathf.FloorToInt(performanceBonus);
+        totalCoins = coins + Mathf.FloorToInt(performanceBonus);
         SaveGame.SaveProgress();
     }
 }

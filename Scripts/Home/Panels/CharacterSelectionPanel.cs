@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Data;
 
 public class CharacterSelectionPanel : PanelBase
 {
@@ -12,7 +13,7 @@ public class CharacterSelectionPanel : PanelBase
     [SerializeField] private TextMeshProUGUI actionButtonText;
     private CharacterInfo selectedCharacter;
     private string previouslySelectedCharacterName;
-
+    GameObject button;
     public override void SetData()
     {
         PopulateCharacterList();
@@ -25,9 +26,17 @@ public class CharacterSelectionPanel : PanelBase
 
         foreach (CharacterInfo character in HomeManager.instance.GetCharacters())
         {
-            GameObject button = Instantiate(characterButtonPrefab, characterListContainer);
-            button.transform.Find("CharacterSprite").GetComponent<Image>().sprite=character.sprite;
+            // if (!button)
+            button = Instantiate(characterButtonPrefab, characterListContainer);
+            button.transform.Find("CharacterSprite").GetComponent<Image>().sprite = character.sprite;
+            button.transform.Find("CharacterName").GetComponent<TextMeshProUGUI>().text = character.characterName;
             button.GetComponent<Button>().onClick.AddListener(() => OnCharacterButtonClicked(character));
+
+            if (!character.isUnlocked)
+                button.transform.Find("Cost").GetComponentInChildren<Image>().sprite = Resources.Load<Sprite>($"Sprites/CostIcon_{(int)character.costType}");
+            else
+                button.transform.Find("UpgradeButton").gameObject.SetActive(true);
+
 
             // If this character is the previously selected one, set the button text to "Selected"
             if (character.characterName == previouslySelectedCharacterName)
@@ -52,6 +61,7 @@ public class CharacterSelectionPanel : PanelBase
         }
         else if (selectedCharacter.isUnlocked)
         {
+
             actionButtonText.text = "Select";
             actionButton.onClick.RemoveAllListeners();
             actionButton.onClick.AddListener(SelectCharacter);
@@ -89,8 +99,11 @@ public class CharacterSelectionPanel : PanelBase
                     GameManager.Instance.commonUI._CurrencyUI.SetCoin();
                     selectedCharacter.isUnlocked = true;
                     PlayerPrefs.SetInt(selectedCharacter.characterName, 1); // Save unlocked state
+                    button.transform.Find("UpgradeButton").gameObject.SetActive(true);
                     UpdateActionButton();
                 }
+                else 
+                GameManager.Instance.commonUI.SetToast("Not enough Coins");
                 break;
         }
     }
