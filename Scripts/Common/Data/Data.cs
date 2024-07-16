@@ -16,10 +16,22 @@ public class Data : MonoBehaviour
         set { PlayerPrefs.SetFloat("VolumeMusic", value); }
     }
 
+    public static float PreviousVolumeEffect
+    {
+        get { return PlayerPrefs.GetFloat("PreviousVolumeEffect", 1f); }
+        set { PlayerPrefs.SetFloat("PreviousVolumeEffect", value); }
+    }
+    public static float PreviousVolumeMusic
+    {
+        get { return PlayerPrefs.GetFloat("PreviousVolumeEffect", 1f); }
+        set { PlayerPrefs.SetFloat("PreviousVolumeEffect", value); }
+    }
+
 
     //Sound File Path
     public static string path_sound = "Audio/";
-    public static string path_particles= "Particles/";
+    public static string path_particles = "Particles/";
+    public static string path_UI_sprites = "Sprites/UI/";
     //SceneLoad
     public static string scene_splash = "0_Splash";
     public static string scene_title = "1_Title";

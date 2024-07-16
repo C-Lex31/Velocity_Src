@@ -9,10 +9,35 @@ public class PopupPause : MonoBehaviour
 
     public CanvasGroup canvasGroup;
     public TextMeshProUGUI textBest;
-    public bool isOn = false;
+    [SerializeField] private Button sfxButton;
+    [SerializeField] private Button musicButton;
+    public bool isOn = false, bMuted = false;
+    float prevEffectVol;
+    Sprite sound, music, soundMute, musicMute;
     public void UIReset()
     {
+        if (Data.VolumeEffect > 0)
+            Data.PreviousVolumeEffect = Data.VolumeEffect;
+        else
+        {
+            bMuted = true;
+        }
+
+
         canvasGroup.DOFade(0f, 0f).SetUpdate(true);
+        sound = Resources.Load<Sprite>($"{Data.path_UI_sprites}icon_audio");
+        soundMute = Resources.Load<Sprite>($"{Data.path_UI_sprites}icon_audio_mute");
+        music = Resources.Load<Sprite>($"{Data.path_UI_sprites}icon_music");
+        musicMute = Resources.Load<Sprite>($"{Data.path_UI_sprites}icon_music_mute");
+        if (Data.VolumeEffect > 0)
+            sfxButton.GetComponent<Image>().sprite = sound;
+        else
+            sfxButton.GetComponent<Image>().sprite = soundMute;
+        if (Data.VolumeMusic > 0)
+            musicButton.GetComponent<Image>().sprite = this.music;
+        else
+            musicButton.GetComponent<Image>().sprite = this.musicMute;
+
 
     }
 
@@ -51,8 +76,40 @@ public class PopupPause : MonoBehaviour
     {
         SoundManager.Instance.PlayEffect(SoundList.sound_common_btn_in);
         SoundManager.Instance.StopBGM();
-       PlayManager.instance.GameOver();
+        PlayManager.instance.GameOver();
 
+    }
+    public void Click_SFX() //Alternate between 0 and Value set by main slider
+    {
+        Debug.Log(Data.PreviousVolumeEffect);
+
+        if (!bMuted)
+        {
+            sfxButton.GetComponent<Image>().sprite = soundMute;
+            if (Data.VolumeEffect > 0)
+                Data.PreviousVolumeEffect = Data.VolumeEffect;
+            else
+                Data.PreviousVolumeEffect = 0.5f; //prevEffectVol shall never be 0
+            Data.VolumeEffect = 0;
+            SoundManager.Instance.SetEffectVolume();
+            bMuted = true;
+        }
+        else
+        {
+            sfxButton.GetComponent<Image>().sprite = sound;
+            Data.VolumeEffect = Data.PreviousVolumeEffect;
+            SoundManager.Instance.SetEffectVolume();
+            bMuted = false;
+        }
+
+    }
+
+
+    public void Click_Music()
+    {
+        musicButton.GetComponent<Image>().sprite = musicMute;
+        Data.VolumeMusic = 0;
+        SoundManager.Instance.SetBgmVolume();
     }
 
 }
