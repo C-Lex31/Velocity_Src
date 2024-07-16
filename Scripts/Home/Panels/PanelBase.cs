@@ -2,9 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
-public class PanelBase: MonoBehaviour
+public class PanelBase : MonoBehaviour
 {
-        [HideInInspector] public bool isOpen = false;
+    [HideInInspector] public bool isOpen = false;
     public CanvasGroup canvasGroup;
 
     /// <summary>
@@ -13,7 +13,7 @@ public class PanelBase: MonoBehaviour
     public virtual void UIReset()
     {
         canvasGroup.DOFade(0f, 0f);
-        canvasGroup.transform.DOScale(0.95f, 0f);
+        canvasGroup.transform.DOScale(0.5f, 0f);
     }
 
     /// <summary>
@@ -22,7 +22,7 @@ public class PanelBase: MonoBehaviour
     public virtual void SetData()
     {
     }
-     /// <summary>
+    /// <summary>
     /// Open panel
     /// </summary>
     public virtual void Open()
@@ -30,12 +30,12 @@ public class PanelBase: MonoBehaviour
         if (isOpen) return;
         isOpen = true;
 
-     //   GameManager.Instance.panelBase = this;
+        //   GameManager.Instance.panelBase = this;
 
         SoundManager.Instance.PlayEffect(SoundList.sound_common_btn_in);
         HomeManager.instance.SetHomeUI(false, canvasGroup);
     }
-     /// <summary>
+    /// <summary>
     /// Close panel
     /// </summary>
     public virtual void Close()
@@ -44,8 +44,17 @@ public class PanelBase: MonoBehaviour
         if (!isOpen) return;
         isOpen = false;
 
-      //  PlayManager.Instance.panelBase = null;
+        //  PlayManager.Instance.panelBase = null;
         SoundManager.Instance.PlayEffect(SoundList.sound_common_btn_close);
-         HomeManager.instance.SetHomeUI(true, canvasGroup);
+        HomeManager.instance.SetHomeUI(true, canvasGroup);
     }
+
+#if UNITY_ANDROID
+    private void Update () {
+        if (Input.GetKeyDown(KeyCode.Escape)) 
+        {
+            Close();
+        }
+    }
+#endif
 }

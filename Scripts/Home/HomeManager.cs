@@ -31,7 +31,7 @@ public class HomeManager : MonoBehaviour
     }
 
     [SerializeField] private List<CharacterInfo> characters;
-    public Sprite[] arr = new Sprite[3];
+
     void Awake()
     {
         LoadCharacterStates();
@@ -46,6 +46,7 @@ public class HomeManager : MonoBehaviour
         //Currency settings
         GameManager.Instance.commonUI._CurrencyUI.SetCoin();
         GameManager.Instance.commonUI._CurrencyUI.SetCredits();
+        characterSelectionPanel.UIReset();
         characterSelectionPanel.SetData();
     }
     [SerializeField] private CanvasGroup cgHome;
@@ -116,6 +117,10 @@ public class HomeManager : MonoBehaviour
     public void ClickPlay()
     {
         GameManager.Instance.LoadScene(Data.scene_play);
+    }
+    public void ClickCharacterSelect()
+    {
+        characterSelectionPanel.Open();
     }
 
 }
