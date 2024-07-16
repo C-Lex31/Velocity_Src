@@ -18,10 +18,9 @@ public class PopupPause : MonoBehaviour
     {
         if (Data.VolumeEffect > 0)
             Data.PreviousVolumeEffect = Data.VolumeEffect;
-        else
-        {
-            bMuted = true;
-        }
+        if (Data.VolumeMusic > 0)
+            Data.PreviousVolumeMusic = Data.VolumeMusic;
+
 
 
         canvasGroup.DOFade(0f, 0f).SetUpdate(true);
@@ -83,23 +82,20 @@ public class PopupPause : MonoBehaviour
     {
         Debug.Log(Data.PreviousVolumeEffect);
 
-        if (!bMuted)
+        if (Data.VolumeEffect > 0)
         {
             sfxButton.GetComponent<Image>().sprite = soundMute;
-            if (Data.VolumeEffect > 0)
-                Data.PreviousVolumeEffect = Data.VolumeEffect;
-            else
-                Data.PreviousVolumeEffect = 0.5f; //prevEffectVol shall never be 0
+            Data.PreviousVolumeEffect = Data.VolumeEffect;
             Data.VolumeEffect = 0;
             SoundManager.Instance.SetEffectVolume();
-            bMuted = true;
+
         }
         else
         {
             sfxButton.GetComponent<Image>().sprite = sound;
             Data.VolumeEffect = Data.PreviousVolumeEffect;
             SoundManager.Instance.SetEffectVolume();
-            bMuted = false;
+
         }
 
     }
@@ -107,9 +103,20 @@ public class PopupPause : MonoBehaviour
 
     public void Click_Music()
     {
-        musicButton.GetComponent<Image>().sprite = musicMute;
-        Data.VolumeMusic = 0;
-        SoundManager.Instance.SetBgmVolume();
+        if (Data.VolumeMusic > 0)
+        {
+            musicButton.GetComponent<Image>().sprite = musicMute;
+            Data.PreviousVolumeMusic = Data.VolumeMusic;
+            Data.VolumeMusic = 0;
+            SoundManager.Instance.SetBgmVolume();
+        }
+        else
+        {
+            musicButton.GetComponent<Image>().sprite = music;
+            Data.VolumeMusic = Data.PreviousVolumeMusic;
+            SoundManager.Instance.SetBgmVolume();
+        }
+
     }
 
 }

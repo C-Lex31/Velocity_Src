@@ -23,8 +23,8 @@ public class Data : MonoBehaviour
     }
     public static float PreviousVolumeMusic
     {
-        get { return PlayerPrefs.GetFloat("PreviousVolumeEffect", 1f); }
-        set { PlayerPrefs.SetFloat("PreviousVolumeEffect", value); }
+        get { return PlayerPrefs.GetFloat("PreviousVolumeMusic", 1f); }
+        set { PlayerPrefs.SetFloat("PreviousVolumeMusic", value); }
     }
 
 
