@@ -15,6 +15,7 @@ public class HomeManager : MonoBehaviour
 {
 
     public PanelBase characterSelectionPanel;
+    public PanelBase settingsPanel;
     static HomeManager _instance;
 
     public static HomeManager instance
@@ -47,6 +48,7 @@ public class HomeManager : MonoBehaviour
         GameManager.Instance.commonUI._CurrencyUI.SetCoin();
         GameManager.Instance.commonUI._CurrencyUI.SetCredits();
         characterSelectionPanel.UIReset();
+        settingsPanel.UIReset();
         characterSelectionPanel.SetData();
     }
     [SerializeField] private CanvasGroup cgHome;
@@ -121,6 +123,10 @@ public class HomeManager : MonoBehaviour
     public void ClickCharacterSelect()
     {
         characterSelectionPanel.Open();
+    }
+    public void ClickSettings()
+    {
+        settingsPanel.Open();
     }
 
 }

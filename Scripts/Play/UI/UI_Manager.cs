@@ -24,12 +24,13 @@ public class UI_Manager : MonoBehaviour
     [SerializeField] private Transform consumablePanel;
     [SerializeField] private GameObject consumableUIPrefab;
 
+
     public PopupPause _PopupPause;
     public PopupContinue _PopupContinue;
     private float distance;
     private int coins;
     private int timeRan;
-
+    float prevEffectVol;
     private Dictionary<string, ConsumableUI> activeConsumableUI = new Dictionary<string, ConsumableUI>();
 
     void Awake()
@@ -91,4 +92,6 @@ public class UI_Manager : MonoBehaviour
         SoundManager.Instance.PlayEffect(SoundList.sound_common_btn_in);
         _PopupPause.Open();
     }
+
+   
 }

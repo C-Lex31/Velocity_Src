@@ -131,15 +131,14 @@ public class LevelGenerator : MonoBehaviour
         return newSegment.Find("RevivePosition");
     }
 
-    private void OnThemeChanged(Theme newTheme , ref Portal po)
+    private void OnThemeChanged(Theme newTheme, ref Portal po)
     {
         PlayManager.instance.ClearAllIndependentObjects();
         levelSegments = newTheme.levelSegments;
-        Debug.Log(po);
         po.gameObject.transform.position = levelSegments[0].Find("PortalStart").position;
         po.gameObject.transform.SetParent(null);
-        Player.instance.transform.position =  new Vector2( po.gameObject.transform.position.x+0.5f,po.gameObject.transform.position.y);
-       Camera.main.transform.position = new Vector3(Player.instance.transform.position.x ,Player.instance.transform.position.y, Camera.main.transform.position.z) ;
+        Player.instance.transform.position = new Vector2(po.gameObject.transform.position.x + 0.5f, po.gameObject.transform.position.y);
+        Camera.main.transform.position = new Vector3(Player.instance.transform.position.x, Player.instance.transform.position.y, Camera.main.transform.position.z);
         ClearOldSegments();
         nextSegmentPosition = Vector3.zero; // Reset the next segment position
     }

@@ -10,6 +10,7 @@ public class CharacterSelectionPanel : PanelBase
     [SerializeField] private GameObject characterButtonPrefab;
     [SerializeField] private Button actionButton;
     [SerializeField] private TextMeshProUGUI actionButtonText;
+    
     private CharacterInfo selectedCharacter;
     private string previouslySelectedCharacterName;
     private GameObject currentlyTouchedButton;
@@ -30,25 +31,23 @@ public class CharacterSelectionPanel : PanelBase
             GameObject button = Instantiate(characterButtonPrefab, characterListContainer);
             characterButtons[character] = button;
 
-            button.transform.Find("CharacterSprite").GetComponent<Image>().sprite = character.sprite;
-            button.transform.Find("CharacterName").GetComponent<TextMeshProUGUI>().text = character.characterName;
-            button.GetComponent<Button>().onClick.AddListener(() => OnCharacterButtonClicked(character));
-            button.transform.Find("UpgradeButton").GetComponent<Button>().onClick.AddListener(() => OnCharacterUpgradeButtonClicked(character));
-            if (!character.isUnlocked)
-                button.transform.Find("Cost").GetComponentInChildren<Image>().sprite = Resources.Load<Sprite>($"Sprites/CostIcon_{(int)character.costType}");
-            else
-            {
-                button.transform.Find("Cost").gameObject.SetActive(false);
-                button.transform.Find("UpgradeButton").gameObject.SetActive(true);
+            CharacterPreviewButton buttonUI = button.GetComponent<CharacterPreviewButton>();
+            buttonUI.Setup(character);
 
-            }
+            buttonUI.Button.onClick.AddListener(() => OnCharacterButtonClicked(character));
+            buttonUI.UpgradeButton.onClick.AddListener(() => OnCharacterUpgradeButtonClicked(character));
+
+            if (!character.isUnlocked)
+                buttonUI.SetCostIcon($"Sprites/CostIcon_{(int)character.costType}");
+            else
+                buttonUI.HideCostAndShowUpgrade();
 
             // If this character is the previously selected one, set the button text to "Selected"
             if (character.characterName == previouslySelectedCharacterName)
             {
                 actionButtonText.text = "Selected";
                 selectedCharacter = character;
-                button.transform.Find("SelectedFrame").gameObject.SetActive(true);
+                buttonUI.SetSelectedFrame(true);
             }
         }
     }
@@ -57,21 +56,23 @@ public class CharacterSelectionPanel : PanelBase
     {
         SetCharacterPreview(character);
     }
+
     public void OnCharacterUpgradeButtonClicked(CharacterInfo character)
     {
         SetCharacterPreview(character);
         Debug.Log("OpenUpgradeWindow");
     }
-    void SetCharacterPreview(CharacterInfo character)
+
+    private void SetCharacterPreview(CharacterInfo character)
     {
         if (currentlyTouchedButton != null)
         {
-            currentlyTouchedButton.transform.Find("TouchedFrame").gameObject.SetActive(false);
+            currentlyTouchedButton.GetComponent<CharacterPreviewButton>().SetTouchedFrame(false);
         }
 
         selectedCharacter = character;
         currentlyTouchedButton = characterButtons[character];
-        currentlyTouchedButton.transform.Find("TouchedFrame").gameObject.SetActive(true);
+        currentlyTouchedButton.GetComponent<CharacterPreviewButton>().SetTouchedFrame(true);
 
         UpdateActionButton();
     }
@@ -96,22 +97,9 @@ public class CharacterSelectionPanel : PanelBase
         }
     }
 
-    private void OnConfirmButtonClicked()
-    {
-        if (selectedCharacter != null)
-        {
-            // Save the selected character 
-            PlayerPrefs.SetString("SelectedCharacter", selectedCharacter.characterName);
-            PlayerPrefs.Save();
-
-            // Load the game scene or proceed with the selected character
-            Debug.Log($"Selected Character: {selectedCharacter.characterName}");
-        }
-    }
-
     private void UnlockCharacter()
     {
-        // unlocking logic here
+        // Unlocking logic here
         switch (selectedCharacter.costType)
         {
             case CostType.Coin:
@@ -121,8 +109,7 @@ public class CharacterSelectionPanel : PanelBase
                     GameManager.Instance.commonUI._CurrencyUI.SetCoin();
                     selectedCharacter.isUnlocked = true;
                     PlayerPrefs.SetInt(selectedCharacter.characterName, 1); // Save unlocked state
-                    characterButtons[selectedCharacter].gameObject.SetActive(false);
-                    characterButtons[selectedCharacter].transform.Find("UpgradeButton").gameObject.SetActive(true);
+                    characterButtons[selectedCharacter].GetComponent<CharacterPreviewButton>().Unlock();
                     UpdateActionButton();
                 }
                 else
@@ -135,7 +122,7 @@ public class CharacterSelectionPanel : PanelBase
 
     private void SelectCharacter()
     {
-        // selection logic here
+        // Selection logic here
         PlayerPrefs.SetString("SelectedCharacter", selectedCharacter.characterName);
         PlayerPrefs.Save();
         Debug.Log($"Selected Character: {selectedCharacter.characterName}");
@@ -145,8 +132,9 @@ public class CharacterSelectionPanel : PanelBase
         // Update frames
         foreach (var pair in characterButtons)
         {
-            pair.Value.transform.Find("SelectedFrame").gameObject.SetActive(pair.Key == selectedCharacter);
-            pair.Value.transform.Find("TouchedFrame").gameObject.SetActive(false);
+            CharacterPreviewButton buttonUI = pair.Value.GetComponent<CharacterPreviewButton>();
+            buttonUI.SetSelectedFrame(pair.Key == selectedCharacter);
+            buttonUI.SetTouchedFrame(false);
         }
     }
 }

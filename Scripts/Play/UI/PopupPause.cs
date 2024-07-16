@@ -48,7 +48,7 @@ public class PopupPause : MonoBehaviour
         Time.timeScale = 0;
 
 
-        // textBest.text = Utility.ChangeThousandsSeparator(GameData.BestScore);
+
         textBest.text = GlobalGameData.BestScore.ToString();
 
         this.gameObject.SetActive(true);
