@@ -16,24 +16,26 @@ public class PopupPause : MonoBehaviour
     Sprite sound, music, soundMute, musicMute;
     public void UIReset()
     {
-        if (Data.VolumeEffect > 0)
-            Data.PreviousVolumeEffect = Data.VolumeEffect;
-        if (Data.VolumeMusic > 0)
-            Data.PreviousVolumeMusic = Data.VolumeMusic;
-
-
 
         canvasGroup.DOFade(0f, 0f).SetUpdate(true);
+
         sound = Resources.Load<Sprite>($"{Data.path_UI_sprites}icon_audio");
         soundMute = Resources.Load<Sprite>($"{Data.path_UI_sprites}icon_audio_mute");
         music = Resources.Load<Sprite>($"{Data.path_UI_sprites}icon_music");
         musicMute = Resources.Load<Sprite>($"{Data.path_UI_sprites}icon_music_mute");
         if (Data.VolumeEffect > 0)
+        {
+            Data.PreviousVolumeEffect = Data.VolumeEffect;
             sfxButton.GetComponent<Image>().sprite = sound;
+        }
         else
             sfxButton.GetComponent<Image>().sprite = soundMute;
+
         if (Data.VolumeMusic > 0)
+        {
+            Data.PreviousVolumeMusic = Data.VolumeMusic;
             musicButton.GetComponent<Image>().sprite = this.music;
+        }
         else
             musicButton.GetComponent<Image>().sprite = this.musicMute;
 
@@ -78,9 +80,8 @@ public class PopupPause : MonoBehaviour
         PlayManager.instance.GameOver();
 
     }
-    public void Click_SFX() //Alternate between 0 and Value set by main slider
+    public void Click_SFX()
     {
-        Debug.Log(Data.PreviousVolumeEffect);
 
         if (Data.VolumeEffect > 0)
         {
@@ -88,7 +89,6 @@ public class PopupPause : MonoBehaviour
             Data.PreviousVolumeEffect = Data.VolumeEffect;
             Data.VolumeEffect = 0;
             SoundManager.Instance.SetEffectVolume();
-
         }
         else
         {

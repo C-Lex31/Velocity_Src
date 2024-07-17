@@ -78,6 +78,7 @@ public class PlayManager : MonoBehaviour
 
     public void GameOver(bool bShowContinuePopup = false)
     {
+        GameManager.Instance.CalcPerfomanceBonus();
 
         GameManager.Instance.Save();
 
@@ -100,10 +101,11 @@ public class PlayManager : MonoBehaviour
     {
         while (Application.IsPlaying(this))
         {
-            yield return new WaitForSeconds(1); // Save progress every 30 seconds
+            yield return new WaitForSeconds(5); // Save progress every 30 seconds
             GameManager.Instance.Save();
         }
     }
+
     public void ClearAllIndependentObjects()
     {
         Coin[] coins = GameObject.FindObjectsOfType<Coin>();

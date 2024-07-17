@@ -19,6 +19,7 @@ public class GameManager : Singleton<GameManager>
     [HideInInspector] public int score = 0;
     [HideInInspector] public int coins = 0;
     [HideInInspector] public int totalCoins = 0;
+     [HideInInspector] public int savedCoins = 0;
     [HideInInspector] public int performanceBonus = 0;
     [HideInInspector] public int distance = 0;
     [HideInInspector] public float TimeRan = 0;
@@ -27,7 +28,7 @@ public class GameManager : Singleton<GameManager>
     private bool bLoadScene;
     public bool bIsTouch;
     private Scene scene;
-  
+    int lastValue = 0;
 
 
     void Awake()
@@ -112,15 +113,24 @@ public class GameManager : Singleton<GameManager>
         return scene.name;
     }
 
-    public void Save()
+    public void Save() 
     {
-
+        
+        if (coins > lastValue)
+        {
+            savedCoins = coins-lastValue + Mathf.FloorToInt(performanceBonus); 
+            lastValue = coins;//10
+            SaveGame.SaveProgress();
+        }
+           
+        
+    }
+    public void CalcPerfomanceBonus()
+    {
         performanceBonus = (int)((distance * 0.1f) + (TimeRan * 0.1f));
 
         // Apply performance modifier to ensure the bonus is always less than coins collected
         performanceBonus = Mathf.FloorToInt(Mathf.Min(performanceBonus, coins * 0.5f));
-
         totalCoins = coins + Mathf.FloorToInt(performanceBonus);
-        SaveGame.SaveProgress();
     }
 }
