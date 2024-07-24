@@ -9,19 +9,13 @@ using UnityEditor.Experimental.GraphView;
 
 //using System.Numerics;
 using UnityEngine;
+using UnityEngine.XR;
 
 public class Player : MonoBehaviour
 {
-    public float moveSpeed;
-    [SerializeField] private float jumpForce;
-    [SerializeField] private float doubleJumpForce;
-    private Rigidbody rb;
+    #region Variables
 
-    private Animator animator;
-
-    private CapsuleCollider Capsule;
-
-    private static Player _instance;
+    // General
     public static Player instance
     {
         get
@@ -30,115 +24,108 @@ public class Player : MonoBehaviour
             {
                 _instance = FindObjectOfType<Player>();
             }
-
             return _instance;
         }
     }
-
     public bool bFlatlined { get; private set; }
+    public float moveSpeed;
 
+    private static Player _instance;
+    [SerializeField] private float jumpForce;
+    [SerializeField] private float doubleJumpForce;
+    private Rigidbody rb;
+    private Animator animator;
+    private CapsuleCollider capsule;
+    private RagdollController ragdoll;
     private bool bIsGrounded;
     private bool bCeillingDetected;
     private bool bWallDetected = false;
+    private Vector3 fp;   // First touch position
+    private Vector3 lp;   // Last touch position
+    private float dragDistance;  // Minimum distance for a swipe to be registered
+    private Vector3 endPosition;
 
-    private Vector3 fp;   //First touch position
-    private Vector3 lp;   //Last touch position
-    private float dragDistance;  //minimum distance for a swipe to be registered
+    // Movement
+    public float accelerationTimeAirborne = .2f;
+    public float accelerationTimeGroundedRun = .3f;
+    public float accelerationTimeGroundedSliding = 1f;
 
+    private float globalGravity = -9.81f;
+    private float horizontalInput = 1f;
+    private Vector2 velocity;
+    private float velocityXSmoothing;
+    private bool bApplyGravity = true;
+    private bool bLedgeClimb;
+    private bool bCanDoubleJump;
+    private bool bCancelJumpRequest;
+    private float gravityModifier = 1;
+    [HideInInspector] public int jumpCount = 0;
+
+    // Sliding
+    [Header("Sliding")]
+    public LayerMask WhatIsRope;
+
+    private RopePoint lastRopePointObj;
+    private LineRenderer ropeRenderer;
+    private Vector3 rotateAxis = Vector3.forward;
+    [HideInInspector] public bool bIsSliding;
+
+    [SerializeField] private float slideSpeed;
+    [SerializeField] private float slideTime;
+    [SerializeField] private float slideCooldown;
+    [SerializeField] private float slidingCapsultHeight = 0.8f;
+    private float slideTimeCounter;
+    private float slideCooldownCounter;
+
+    // Rope
+    [Header("Rope")]
+    [ReadOnly] public bool bIsGrabingRope = false;
+    [ReadOnly] public RopePoint currentAvailableRope;
+
+    [Tooltip("Draw rope offset")]
+    [SerializeField] private float ropeCheckRadius = 6;
+    [SerializeField] private Vector2 grabOffset = new Vector2(0, 1.6f);
+    [SerializeField] private float releaseForce = 10;
+    [SerializeField] private float ropeSpeed = 100;
+    private float releasePointY;
+    private float originalCharCenterY, originalCharHeight;
+
+    // Ground and Wall Checks
+    [Header("Ground and Wall Checks")]
+    private bool bWasInAir;
+    private bool bCanRoll;
+    
     [SerializeField] private float groundCheckDistance;
     [SerializeField] private float ceillingCheckDistance;
     [SerializeField] private LayerMask whatIsGround;
     [SerializeField] private Transform wallCheck;
     [SerializeField] private Vector2 wallCheckSize;
     [SerializeField] private float gravityScale;
-    [SerializeField] private RagdollController ragdoll;
+
     [SerializeField] private float lowCheckOffset = 4;
     [SerializeField] private float highCheckOffset = 1;
-    Vector3 endPosition;
-    private float globalGravity = -9.81f;
-    private float horizontalInput = 1f;
-    private Vector2 velocity;
-    float velocityXSmoothing;
-    public float accelerationTimeAirborne = .2f;
-    public float accelerationTimeGroundedRun = .3f;
-    public float accelerationTimeGroundedSliding = 1f;
 
-    [SerializeField] private bool bApplyGravity = true;
-    private bool bLedgeClimb;
-
-    private bool bCanDoubleJump;
-
-    [Header("SLIDING")]
-    [SerializeField] private float slideSpeed;
-    [SerializeField] private float slideTime;
-    [SerializeField] private float slideCooldown;
-    [SerializeField] private float slidingCapsultHeight = 0.8f;
-    [HideInInspector] public bool bIsSliding;
-    private float slideTimeCounter;
-    private float slideCooldownCounter;
-
-    [Header("ROPE")]
-    public LayerMask WhatIsRope;
-    RopePoint lastRopePointObj;
-    [SerializeField] private float ropeCheckRadius = 6;
-    [Tooltip("draw rope offset")]
-    [SerializeField] private Vector2 grabOffset = new Vector2(0, 1.6f);
-    LineRenderer ropeRenderer;
-    [SerializeField] private float releaseForce = 10;
-    private float releasePointY;
-    [SerializeField] private float ropeSpeed = 100;
-    private Vector3 rotateAxis = Vector3.forward;
-    [ReadOnly] public bool bIsGrabingRope = false;
-    [ReadOnly] public RopePoint currentAvailableRope;
-    private float originalCharCenterY, originalCharHeight;
-
-    private bool bCancelJumpRequest;
-    private float gravityModifier = 1;
-    [HideInInspector] public int jumpCount = 0;
+    // Parkour
     [HideInInspector] public ParkourPickup currentParkourPickup;
 
-    // Start is called before the first frame update
+    #endregion
+
+    #region Engine Methods
     void Start()
     {
-        rb = GetComponent<Rigidbody>();
-        animator = GetComponent<Animator>();
-        transform.position = new Vector3(transform.position.x, transform.position.y, 0);
-        Capsule = GetComponent<CapsuleCollider>();
-        dragDistance = Screen.height * 15 / 100; //dragDistance is 15% height of the screen
-        rb.useGravity = false;
-        ropeRenderer = GetComponent<LineRenderer>();
-        originalCharCenterY = Capsule.center.y;
-        originalCharHeight = Capsule.height;
-
-
+        InitializeComponents();
+        InitializeSettings();
     }
-
-    // Update is called once per frame
     void Update()
     {
 
         if (bFlatlined) return;
         if (bIsGrabingRope && !bIsGrounded)
         {
-            transform.RotateAround(currentAvailableRope.transform.position, rotateAxis, horizontalInput * (ropeSpeed * moveSpeed) * Time.deltaTime);
-
-
-            transform.up = currentAvailableRope.transform.position - transform.position;
-            transform.Rotate(0, horizontalInput > 0 ? 90 : -90, 0);
-
-            ropeRenderer.SetPosition(0, transform.position + transform.forward * grabOffset.x + transform.up * grabOffset.y);
-            ropeRenderer.SetPosition(1, currentAvailableRope.transform.position);
-
-            if (transform.position.y >= releasePointY)
-            {
-                if ((horizontalInput > 0 && transform.position.x > currentAvailableRope.transform.position.x) || (horizontalInput < 0 && transform.position.x < currentAvailableRope.transform.position.x))
-                    //GrabRelease();      //disconnect grab if player reach to the limit position
-                    Flip();
-            }
+            HandleRopeSwing();
         }
         else
         {
-
             slideCooldownCounter -= Time.deltaTime;
             CheckCollision();
             HandleMovement();
@@ -151,14 +138,11 @@ public class Player : MonoBehaviour
 
         if (bIsGrounded)
         {
-
-            bCanDoubleJump = false;
-            gravityModifier = 1;
+            ResetJumpState();
         }
         else
         {
             CheckBounds();
-            //CheckRopeInZone(); //Only check for rope point when in air
         }
         UpdateAnimatorValues();
         CheckForSlideCancel();
@@ -171,17 +155,44 @@ public class Player : MonoBehaviour
         if (bFlatlined) return;
         if (rb && bApplyGravity && climbingState == ClimbingState.None)
         {
-            Vector3 gravity = globalGravity * gravityScale * gravityModifier * Vector3.up;
-            rb.AddForce(gravity, ForceMode.Acceleration);
+            ApplyGravity();
         }
 
         if (!bIsGrounded && bCancelJumpRequest && transform.position.y >= 7f)
         {
             CancelJump();
         }
-        var finalPos = new Vector3(transform.position.x, transform.position.y, 0);
-        transform.position = finalPos;    //keep the player stay 0 on Z axis
+        NullOutZ();
     }
+    #endregion
+
+
+
+
+    #region Initialization Methods
+    private void InitializeComponents()
+    {
+        rb = GetComponent<Rigidbody>();
+        animator = GetComponent<Animator>();
+        capsule = GetComponent<CapsuleCollider>();
+        ropeRenderer = GetComponent<LineRenderer>();
+        ragdoll = GetComponent<RagdollController>();
+    }
+
+    private void InitializeSettings()
+    {
+        transform.position = new Vector3(transform.position.x, transform.position.y, 0);
+        dragDistance = Screen.height * 15 / 100;
+        rb.useGravity = false;
+        originalCharCenterY = capsule.center.y;
+        originalCharHeight = capsule.height;
+    }
+
+    #endregion
+
+
+
+    #region Animation Methods
     void UpdateAnimatorValues()
     {
         animator.SetFloat(AnimatorParams.xVel, rb.velocity.x);
@@ -195,9 +206,9 @@ public class Player : MonoBehaviour
         {
             bCanRoll = true;
         }
-
-
     }
+
+    #endregion
 
     void PollInput()
     {
@@ -206,6 +217,8 @@ public class Player : MonoBehaviour
 #endif
         SwipeControls();
     }
+
+    #region MovementMethods
     void HandleMovement()
     {
 
@@ -225,15 +238,23 @@ public class Player : MonoBehaviour
         rb.velocity = velocity;
 
     }
-    void CheckBounds()
-    {
-        //  if (transform.position.y + Capsule.height < Camera.main.ScreenToWorldPoint(new Vector3(0, 0, 10)).y)
-        //   HandleDeath();
-    }
     void Flip()
     {
         horizontalInput *= -1;
     }
+    #endregion
+
+    #region Gravity Mathods
+
+    void ApplyGravity()
+    {
+        Vector3 gravity = globalGravity * gravityScale * gravityModifier * Vector3.up;
+        rb.AddForce(gravity, ForceMode.Acceleration);
+    }
+    #endregion
+
+
+    #region Death and Revive
     void HandleDeath()
     {
         bWallDetected = false;
@@ -256,6 +277,7 @@ public class Player : MonoBehaviour
         bApplyGravity = true;
         bFlatlined = false;
     }
+    #endregion
     public void Teleport(bool start = true)
     {
         if (start)
@@ -274,17 +296,18 @@ public class Player : MonoBehaviour
         }
 
     }
+    #region Collision Methods
     void CheckCollision()
     {
         if (climbingState != ClimbingState.None || animator.hasRootMotion) return;
         RaycastHit hit;
-        bIsGrounded = Physics.SphereCast(transform.position + Vector3.up * 1, Capsule.radius * 0.9f, Vector3.down, out groundHit, 1f, whatIsGround);
+        bIsGrounded = Physics.SphereCast(transform.position + Vector3.up * 1, capsule.radius * 0.9f, Vector3.down, out groundHit, 1f, whatIsGround);
 
         // bCeillingDetected = Physics.Raycast(transform.position, Vector2.up, ceillingCheckDistance, whatIsGround);
         // bWallDetected = Physics.BoxCast(wallCheck.position, wallCheckSize, Vector3.forward, Quaternion.identity, 10, whatIsGround);
 
-        if (Physics.SphereCast(transform.position + Vector3.up * (Capsule.height / lowCheckOffset), 0.12f, Vector3.right, out hit, 0.45f, whatIsGround))
-            bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (Capsule.height * highCheckOffset), 0.12f, Vector3.right, out hit, 0.45f, whatIsGround);
+        if (Physics.SphereCast(transform.position + Vector3.up * (capsule.height / lowCheckOffset), 0.12f, Vector3.right, out hit, 0.45f, whatIsGround))
+            bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (capsule.height * highCheckOffset), 0.12f, Vector3.right, out hit, 0.45f, whatIsGround);
 
         if (!bIsGrounded)
         {
@@ -308,13 +331,26 @@ public class Player : MonoBehaviour
         else
             animator.CrossFade(AnimatorParams.Land, 0f);
     }
-
-
-    private void CheckForSlideCancel()
+    void CheckBounds()
     {
-        if (slideTimeCounter < 0 || !bIsGrounded)
-            OnSlideEnd();
+        //  if (transform.position.y + capsule.height < Camera.main.ScreenToWorldPoint(new Vector3(0, 0, 10)).y)
+        //   HandleDeath();
     }
+    void NullOutZ()
+    {
+        var finalPos = new Vector3(transform.position.x, transform.position.y, 0);
+        transform.position = finalPos;    //keep the player stay 0 on Z axis
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.gameObject.tag == "Deadzone" && !bFlatlined)
+            HandleDeath();
+    }
+
+    #endregion
+
+
     void SwipeControls()
     {
         if (Input.touchCount > 0) // user is touching the screen with a single touch
@@ -390,13 +426,13 @@ public class Player : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Space))
         {
             RollEnd();
-            if(currentParkourPickup != null && climbingState == ClimbingState.None && bIsGrounded && !bIsSliding&&!bFlatlined)
+            if (currentParkourPickup != null && climbingState == ClimbingState.None && bIsGrounded && !bIsSliding && !bFlatlined)
             {
                 currentParkourPickup.ActivateParkour();
                 return;
             }
             PerformJump();
-            
+
         }
 
         if (Input.GetKeyDown(KeyCode.S))
@@ -411,6 +447,8 @@ public class Player : MonoBehaviour
             }
         }
     }
+
+    #region Jump Methods
     void PerformJump()
 
     {
@@ -443,7 +481,19 @@ public class Player : MonoBehaviour
         animator.SetTrigger(AnimatorParams.Jump);
 
     }
+    private void ResetJumpState()
+    {
+        bCanDoubleJump = false;
+        gravityModifier = 1;
+    }
+    void CancelJump()
+    {
+        bCancelJumpRequest = false;
+        gravityModifier = 6;
+    }
+    #endregion
 
+    #region Slide Methods
     void OnSlideStart()
     {
         // if (slideCooldownCounter > 0) return;
@@ -464,6 +514,12 @@ public class Player : MonoBehaviour
         bIsSliding = false;
         ScaleCapsule(true);
     }
+    private void CheckForSlideCancel()
+    {
+        if (slideTimeCounter < 0 || !bIsGrounded)
+            OnSlideEnd();
+    }
+    #endregion
     public void RollEnd()
     {
         ScaleCapsule(true);
@@ -474,44 +530,30 @@ public class Player : MonoBehaviour
         ScaleCapsule();
     }
 
+    #region Misc
     void ScaleCapsule(bool bReset = false)
     {
         if (bReset)
         {
-            Capsule.height = originalCharHeight;
-            var _center = Capsule.center;
+            capsule.height = originalCharHeight;
+            var _center = capsule.center;
             _center.y = originalCharCenterY;
-            Capsule.center = _center;
+            capsule.center = _center;
             animator.SetBool("bCanRoll", false);
         }
         else
         {
-            Capsule.height = slidingCapsultHeight;
-            var _center = Capsule.center;
+            capsule.height = slidingCapsultHeight;
+            var _center = capsule.center;
             _center.y = slidingCapsultHeight * 0.5f;
-            Capsule.center = _center;
+            capsule.center = _center;
         }
     }
-    void DoubleJumpStart()
-    {
-        animator.SetBool("bLockDoubleJump", true);
-    }
-    void DoubleJumpEnd()
-    {
-        animator.SetBool("bLockDoubleJump", false);
-    }
-    void CancelJump()
-    {
-        bCancelJumpRequest = false;
-        gravityModifier = 6;
-    }
+    #endregion
 
-    private void OnTriggerEnter(Collider other)
-    {
 
-        if (other.gameObject.tag == "Deadzone" && !bFlatlined)
-            HandleDeath();
-    }
+
+
 
 
 
@@ -555,7 +597,7 @@ public class Player : MonoBehaviour
                             velocity = Vector2.zero;
 
                             rb.velocity = velocity;
-                            Capsule.enabled = false;
+                            capsule.enabled = false;
                             rb.isKinematic = true;
                             bApplyGravity = false;
                             transform.position = CalculatePositionOnLedge(climbOffsetPos);
@@ -576,8 +618,7 @@ public class Player : MonoBehaviour
 
     RaycastHit hitVertical;
     RaycastHit hitHorizontal;
-    private bool bWasInAir;
-    private bool bCanRoll;
+
 
     bool CheckLedge()       //check higher ledge
     {
@@ -593,7 +634,7 @@ public class Player : MonoBehaviour
                 ledgeTarget = hitVertical.transform;
                 ledgePoint = new Vector3(hitHorizontal.point.x, hitVertical.point.y, transform.position.z);
                 rb.velocity = Vector3.zero;
-                Capsule.enabled = false;
+                capsule.enabled = false;
                 rb.isKinematic = true;
                 bApplyGravity = false;
                 transform.position = CalculatePositionOnLedge(climbOffsetPos);
@@ -611,24 +652,22 @@ public class Player : MonoBehaviour
     }
     private Vector3 CalculatePositionOnLedge(Vector3 offset)
     {
-        Vector3 newPos = new Vector3(ledgePoint.x - (Capsule.radius * (horizontalInput > 0 ? 1 : -1)) - offset.x, ledgePoint.y - offset.y, transform.position.z);
+        Vector3 newPos = new Vector3(ledgePoint.x - (capsule.radius * (horizontalInput > 0 ? 1 : -1)) - offset.x, ledgePoint.y - offset.y, transform.position.z);
 
         return newPos;
     }
 
     IEnumerator ClimbingLedgeCo(bool lowClimb)
     {
-        Capsule.enabled = false;
+        capsule.enabled = false;
         rb.isKinematic = true;
         bApplyGravity = false;
         animator.applyRootMotion = true;
         climbingState = ClimbingState.ClimbingLedge;
         if (lowClimb)
             animator.CrossFade(AnimatorParams.LowLedgeClimb, 0.1f);
-        //  animator.SetBool("bLowLedgeClimb", true);
         else
             animator.CrossFade(AnimatorParams.LedgeClimb, 0.1f);
-        // animator.SetBool("bLedgeClimb", true);
 
         UpdateAnimatorValues();
 
@@ -644,7 +683,7 @@ public class Player : MonoBehaviour
 
     void LedgeReset()
     {
-        Capsule.enabled = true;
+        capsule.enabled = true;
         animator.applyRootMotion = false;
         rb.isKinematic = false;
         bApplyGravity = true;
@@ -653,63 +692,24 @@ public class Player : MonoBehaviour
         animator.SetBool("bLowLedgeClimb", false);
         ledgeTarget = null;
     }
-    /*void CheckRopeInZone()
+    #region Rope Methods
+    void HandleRopeSwing()
     {
-        if (bIsGrabingRope)
-            return;
+        transform.RotateAround(currentAvailableRope.transform.position, rotateAxis, horizontalInput * (ropeSpeed * moveSpeed) * Time.deltaTime);
 
-        var hits = Physics.OverlapSphere(transform.position + Vector3.up * Capsule.height * 0.5f, ropeCheckRadius, WhatIsRope);
+        transform.up = currentAvailableRope.transform.position - transform.position;
+        transform.Rotate(0, horizontalInput > 0 ? 90 : -90, 0);
 
-        if (hits.Length > 0)
+        ropeRenderer.SetPosition(0, transform.position + transform.forward * grabOffset.x + transform.up * grabOffset.y);
+        ropeRenderer.SetPosition(1, currentAvailableRope.transform.position);
+
+        if (transform.position.y >= releasePointY)
         {
-            for (int i = 0; i < hits.Length; i++)
-            {
-                if (horizontalInput > 0)
-                {
-                    if (hits[i].transform.position.x > transform.position.x)
-                    {
-                        currentAvailableRope = hits[i].GetComponent<RopePoint>();
-                        if (lastRopePointObj != currentAvailableRope)
-                        {
-                            if (currentAvailableRope.slowMotion)
-                                Time.timeScale = 0.1f;
-                        }
-                        else
-                            currentAvailableRope = null;
-                    }
-                    else
-                        currentAvailableRope = null;
-                }
-                else
-                {
-                    if (hits[i].transform.position.x < transform.position.x)
-                    {
-                        currentAvailableRope = hits[i].GetComponent<RopePoint>();
-                        if (lastRopePointObj != currentAvailableRope)
-                        {
-                            if (currentAvailableRope.slowMotion)
-                                Time.timeScale = 0.1f;
-                        }
-                        else
-                            currentAvailableRope = null;
-                    }
-                    else
-                        currentAvailableRope = null;
-                }
-            }
+            if ((horizontalInput > 0 && transform.position.x > currentAvailableRope.transform.position.x) || (horizontalInput < 0 && transform.position.x < currentAvailableRope.transform.position.x))
+                //GrabRelease();      //disconnect grab if player reach to the limit position
+                Flip();
         }
-        else
-        {
-            if (currentAvailableRope != null)       //set time scale back to normal if it active the slow motion before but player don't grab
-            {
-                if (currentAvailableRope.slowMotion)
-                    Time.timeScale = 1;
-            }
-
-            currentAvailableRope = null;
-        }
-    }*/
-
+    }
     public void GrabRope()
     {
         if (bIsGrabingRope)
@@ -757,7 +757,9 @@ public class Player : MonoBehaviour
         bIsGrabingRope = false;
         currentAvailableRope = null;
     }
+    #endregion
 
+    #region  Parkour Tricks
     public void TriggerParkourAnimation(AnimationClip animClip, float transitionTime = 0.2f, bool bScaleCapsule = false)
     {
         Debug.Log(animClip.name);
@@ -765,7 +767,7 @@ public class Player : MonoBehaviour
         animator.applyRootMotion = true;
         animator.SetLayerWeight(1, 1);
         animator.CrossFadeInFixedTime(animClip.name, transitionTime, 1);
-        Capsule.enabled = false;
+        capsule.enabled = false;
         rb.isKinematic = true;
 
         StartCoroutine(EndParkourState(animator.GetCurrentAnimatorStateInfo(1).length));
@@ -775,10 +777,11 @@ public class Player : MonoBehaviour
         yield return new WaitForSeconds(t);
         climbingState = ClimbingState.None;
         animator.applyRootMotion = false;
-        Capsule.enabled = true;
+        capsule.enabled = true;
         rb.isKinematic = false;
         // animator.SetLayerWeight(1, 0);
     }
+    #endregion
     private void OnDrawGizmosSelected()
     {
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y - groundCheckDistance));
@@ -787,8 +790,8 @@ public class Player : MonoBehaviour
         // Gizmos.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), Vector3.right * 2);
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y + ceillingCheckDistance));
         // Gizmos.DrawWireCube(wallCheck.position, wallCheckSize);
-        //  Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height / lowCheckOffset) + Vector3.right * 0.45f, 0.18f);
-        //Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height * highCheckOffset) + Vector3.right * 0.45f, 0.18f);
+        //  Gizmos.DrawSphere(transform.position + Vector3.up * (capsule.height / lowCheckOffset) + Vector3.right * 0.45f, 0.18f);
+        //Gizmos.DrawSphere(transform.position + Vector3.up * (capsule.height * highCheckOffset) + Vector3.right * 0.45f, 0.18f);
 
     }
 

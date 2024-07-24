@@ -126,6 +126,7 @@ public class CharacterSelectionPanel : PanelBase
         PlayerPrefs.SetString("SelectedCharacter", selectedCharacter.characterName);
         PlayerPrefs.Save();
         Debug.Log($"Selected Character: {selectedCharacter.characterName}");
+    GameManager.Instance.selectedCharacter = selectedCharacter;
         actionButtonText.text = "Selected";
         previouslySelectedCharacterName = selectedCharacter.characterName;
 

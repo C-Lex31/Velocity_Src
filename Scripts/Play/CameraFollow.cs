@@ -27,7 +27,7 @@ public class CameraFollow : MonoBehaviour
     }
     private void FixedUpdate()
     {
-
+        if(!Player.instance)return;
         offset = offsetPlayer;
         if (Player.instance.bFlatlined)
         {
@@ -38,7 +38,7 @@ public class CameraFollow : MonoBehaviour
         var finalPos = Player.instance.transform.position + offset;
         finalPos.y = Mathf.Clamp(finalPos.y, limitBelow, limitUp);
 
-        transform.position = Vector3.Lerp(transform.position, finalPos, 6 * Time.deltaTime);
+        transform.position = Vector3.Lerp(transform.position, finalPos, lerpSpeed * Time.deltaTime);
     }
 
     private void OnDrawGizmos()

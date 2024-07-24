@@ -16,5 +16,5 @@ MonoBehaviour:
   characterPrefab: {fileID: 0}
   sprite: {fileID: 21300000, guid: 6461efbff7289b44ba1c74ee394c3d5b, type: 3}
   isUnlocked: 0
-  costValue: 570000
+  costValue: 1
   costType: 1

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Runner_Nomad
   m_EditorClassIdentifier: 
   characterName: V
-  characterPrefab: {fileID: 0}
+  characterPrefab: {fileID: 4778894837761667249, guid: 3cdea663d3d6f8f44ac1ba61baafc8b8, type: 3}
   sprite: {fileID: 21300000, guid: e8dd6cd6256854a4990236da50353f83, type: 3}
   isUnlocked: 1
-  costValue: 0
+  costValue: 1
   costType: 1

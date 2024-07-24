@@ -38,6 +38,7 @@ public class LevelGenerator : MonoBehaviour
 
     private void Update()
     {
+  
         DeleteSegment();
         GenerateSegment();
     }

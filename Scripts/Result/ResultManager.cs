@@ -24,7 +24,7 @@ public class ResultManager : MonoBehaviour
     float timeRan = 0;
     private bool bIsShow;
     private bool bIsExpAnimation;
-
+    bool bScreenTapped;
     void Awake()
     {
         objRibbon.transform.DOScale(0f, 0f);
@@ -36,7 +36,7 @@ public class ResultManager : MonoBehaviour
         bestScore = GlobalGameData.BestScore;
         // score = GlobalGameData.Score = GameManager.Instance.score;
         textBestScore.text = bestScore.ToString();
-        textTotalCoins.text=textBonusCoins.text=textDistance.text = textCoins.text = textScore.text = 0.ToString();
+        textTotalCoins.text = textBonusCoins.text = textDistance.text = textCoins.text = textScore.text = 0.ToString();
         textTime.text = String.Format("{0:00}:{1:00}", 0, 0);
     }
     void Start()
@@ -47,7 +47,29 @@ public class ResultManager : MonoBehaviour
         StartCoroutine(ShowResultsCo());
 
     }
+    void Update()
+    {
+        if (Input.touchCount > 0)
+        {
+            Touch touch = Input.GetTouch(0);
 
+            if (touch.phase == TouchPhase.Ended)
+            {
+                // Perform your action here
+                Debug.Log("Screen tapped!");
+                bScreenTapped = true;
+            }
+        }
+#if UNITY_EDITOR
+        // For editor testing with mouse click
+        if (Input.GetMouseButtonDown(0))
+        {
+            // Perform your action here
+            Debug.Log("Mouse clicked!");
+            bScreenTapped = true;
+        }
+#endif
+    }
     IEnumerator ShowResultsCo()
     {
         bIsShow = true;
@@ -73,7 +95,7 @@ public class ResultManager : MonoBehaviour
             yield return new WaitForSeconds(0.2f);
             //Score count animation
             DOTween.To(() => bestScore, x => bestScore = x, playScore, time).SetEase(Ease.Linear);
-            while (time > 0)
+            while (time > 0 && !bScreenTapped)
             {
                 time -= Time.deltaTime;
                 textBestScore.text = bestScore.ToString();
@@ -86,7 +108,7 @@ public class ResultManager : MonoBehaviour
 
         time = 1f;
         DOTween.To(() => distance, x => distance = x, GameManager.Instance.distance, time).SetEase(Ease.Linear);
-        while (time > 0)
+        while (time > 0 && !bScreenTapped)
         {
             time -= Time.deltaTime;
             textDistance.text = distance.ToString();
@@ -96,7 +118,7 @@ public class ResultManager : MonoBehaviour
 
         time = 1f;
         DOTween.To(() => timeRan, x => timeRan = x, GameManager.Instance.TimeRan, time).SetEase(Ease.Linear);
-        while (time > 0)
+        while (time > 0 && !bScreenTapped)
         {
             time -= Time.deltaTime;
             int minutes = Mathf.FloorToInt(timeRan / 60);
@@ -109,7 +131,7 @@ public class ResultManager : MonoBehaviour
 
         time = 1f;
         DOTween.To(() => coin, x => coin = x, GameManager.Instance.coins, time).SetEase(Ease.Linear);
-        while (time > 0)
+        while (time > 0 && !bScreenTapped)
         {
             time -= Time.deltaTime;
             textCoins.text = coin.ToString();
@@ -119,7 +141,7 @@ public class ResultManager : MonoBehaviour
 
         time = 1f;
         DOTween.To(() => performanceBonus, x => performanceBonus = x, GameManager.Instance.performanceBonus, time).SetEase(Ease.Linear);
-        while (time > 0)
+        while (time > 0 && !bScreenTapped)
         {
             time -= Time.deltaTime;
             textBonusCoins.text = performanceBonus.ToString();
@@ -132,7 +154,7 @@ public class ResultManager : MonoBehaviour
         TotalCoins.DOFade(1, 0.5f);
         time = 1f;
         DOTween.To(() => totalCoins, x => totalCoins = x, GameManager.Instance.totalCoins, time).SetEase(Ease.Linear);
-        while (time > 0)
+        while (time > 0 && !bScreenTapped)
         {
             time -= Time.deltaTime;
             textTotalCoins.text = totalCoins.ToString();
@@ -140,7 +162,7 @@ public class ResultManager : MonoBehaviour
         }
         textTotalCoins.text = GameManager.Instance.totalCoins.ToString();
 
-        
+
 
         yield return new WaitForSeconds(0.2f);
         buttonHome.transform.DOScale(1f, 0.25f).SetEase(Ease.OutCubic);

@@ -29,7 +29,7 @@ public class PopupContinue : MonoBehaviour
     }
     public void Open()
     {
-        Time.timeScale=0;
+        Time.timeScale = 0;
         SoundManager.Instance.PlayEffect(SoundList.sound_continue_sfx_default);
         // iconAds.SetActive(false);
 
@@ -40,8 +40,7 @@ public class PopupContinue : MonoBehaviour
         keyCountText.text = GlobalGameData.Key.ToString();
         this.gameObject.SetActive(true);
         canvasGroup.DOKill();
-        Debug.Log("OpenMenu");
-        
+
         canvasGroup.DOFade(1f, 0.25f).SetEase(Ease.OutCubic).SetUpdate(true);
         popupBg.transform.DOScale(1f, 0.2f).SetEase(Ease.OutBack).SetUpdate(true);
         StartCoroutine(ScoreAnimCo());
@@ -58,7 +57,7 @@ public class PopupContinue : MonoBehaviour
 
         while (time > 0)
         {
-            time-=Time.unscaledDeltaTime;
+            time -= Time.unscaledDeltaTime;
             textScore.text = score.ToString();
             yield return null;
         }
@@ -75,7 +74,7 @@ public class PopupContinue : MonoBehaviour
 
     public void Click_NoThanks()
     {
-        GameManager.Instance.LoadScene(Data.scene_result);
+        PlayManager.instance.LoadResultScene();
         SoundManager.Instance.StopBGM();
     }
     public void Click_Continue()
@@ -92,7 +91,7 @@ public class PopupContinue : MonoBehaviour
     }
     public void Close()
     {
-         Time.timeScale=1;
+        Time.timeScale = 1;
         canvasGroup.DOKill();
         canvasGroup.DOFade(0f, 0.25f).SetEase(Ease.OutCubic).OnComplete(() => { this.gameObject.SetActive(false); });
     }

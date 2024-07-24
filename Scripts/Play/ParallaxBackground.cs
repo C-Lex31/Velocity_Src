@@ -1,57 +1,54 @@
-
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class ParallaxBackground : MonoBehaviour
 {
-
-
-    private GameObject cam;
+    private Transform cam;
     private Vector3 startPosition;
+    private Vector3 camStartPosition;
+
+    [SerializeField] private float horizontalParallaxEffect;
+    [SerializeField] private float verticalParallaxEffect;
+
     private float length;
-    private Vector3 startCameraPosition;
-    [SerializeField] private float multiplier;
-    [SerializeField] private bool calculateInfiniteVerticalPosition;
-    [SerializeField] private bool calculateInfiniteHorisontalPosition;
-    [SerializeField] private bool horizontalOnly;
 
-
-
+void Awake()
+{
+     cam = Camera.main.transform;
+        startPosition = transform.position;
+        camStartPosition = cam.position;
+        length = GetComponent<SpriteRenderer>().bounds.size.x;
+         UpdateParallax();
+}
     void Start()
     {
-        cam = GameObject.FindWithTag("MainCamera");
-        startPosition = transform.position;
-        startCameraPosition = cam.transform.position;
-        CalculateStartPosition();
+       
         
     }
 
-    void CalculateStartPosition()
-    {
-        float distX = (cam.transform.position.x - transform.position.x) * multiplier;
-        float distY = (cam.transform.position.y - transform.position.y) * multiplier;
-        Vector3 tmp = new Vector3(startPosition.x, startPosition.y);
-        if (calculateInfiniteHorisontalPosition)
-            tmp.x = transform.position.x + distX;
-        if (calculateInfiniteVerticalPosition)
-            tmp.y = transform.position.y + distY;
-        startPosition = tmp;
-        length = GetComponent<SpriteRenderer>().bounds.size.x;
-    }
-
-
     void FixedUpdate()
     {
-        Vector3 position = startPosition;
-        if (horizontalOnly)
-            position.x += multiplier * (cam.transform.position.x - startCameraPosition.x);
-        else
-            position += multiplier * (cam.transform.position - startCameraPosition);
-        transform.position = new Vector3(position.x, position.y, transform.position.z);
+        UpdateParallax();
+    }
+    void UpdateParallax()
+    {
+        // Calculate the parallax effect for both horizontal and vertical movement
+        float distanceToMoveX = (cam.position.x - camStartPosition.x) * horizontalParallaxEffect;
+        float distanceToMoveY = (cam.position.y - camStartPosition.y) * verticalParallaxEffect;
 
-        float tmp = cam.transform.position.x * (1 - multiplier);
-        if (tmp > startPosition.x + length)
+        // Update the background's position 
+        transform.position = new Vector3(startPosition.x + distanceToMoveX, startPosition.y + distanceToMoveY, transform.position.z);
+
+        // Infinite horizontal parallax
+        float tempX = cam.position.x * (1 - horizontalParallaxEffect);
+        if (tempX > startPosition.x + length)
+        {
             startPosition.x += length;
-        else if (tmp < startPosition.x - length)
-            startPosition.x = length;
+        }
+        else if (tempX < startPosition.x - length)
+        {
+            startPosition.x -= length;
+        }
     }
 }

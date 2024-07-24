@@ -19,12 +19,13 @@ public class GameManager : Singleton<GameManager>
     [HideInInspector] public int score = 0;
     [HideInInspector] public int coins = 0;
     [HideInInspector] public int totalCoins = 0;
-     [HideInInspector] public int savedCoins = 0;
+    [HideInInspector] public int savedCoins = 0;
     [HideInInspector] public int performanceBonus = 0;
     [HideInInspector] public int distance = 0;
     [HideInInspector] public float TimeRan = 0;
     [HideInInspector] public bool isSaveGameStart = false;
     [HideInInspector] public CommonUI commonUI;
+    [HideInInspector] public CharacterInfo selectedCharacter;
     private bool bLoadScene;
     public bool bIsTouch;
     private Scene scene;
@@ -43,7 +44,8 @@ public class GameManager : Singleton<GameManager>
     }
     void Start()
     {
-
+        string characterName = PlayerPrefs.GetString("SelectedCharacter", "DefaultCharacter");
+       selectedCharacter = HomeManager.instance.GetCharacters().Find(c => c.characterName == characterName);
     }
 
     void Update()
@@ -113,17 +115,13 @@ public class GameManager : Singleton<GameManager>
         return scene.name;
     }
 
-    public void Save() 
+    public void Save()
     {
-        
         if (coins > lastValue)
         {
-            savedCoins = coins-lastValue + Mathf.FloorToInt(performanceBonus); 
-            lastValue = coins;//10
-            SaveGame.SaveProgress();
+            SaveFinal();
         }
-           
-        
+        SaveGame.SaveBestScore();
     }
     public void CalcPerfomanceBonus()
     {
@@ -132,5 +130,13 @@ public class GameManager : Singleton<GameManager>
         // Apply performance modifier to ensure the bonus is always less than coins collected
         performanceBonus = Mathf.FloorToInt(Mathf.Min(performanceBonus, coins * 0.5f));
         totalCoins = coins + Mathf.FloorToInt(performanceBonus);
+
+    }
+    public void SaveFinal()
+    {
+        savedCoins = coins - lastValue + Mathf.FloorToInt(performanceBonus);
+        lastValue = coins;//10
+        SaveGame.SaveCoins();
+        SaveGame.SaveBestScore();
     }
 }

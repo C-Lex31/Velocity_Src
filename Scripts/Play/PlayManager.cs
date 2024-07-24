@@ -22,15 +22,26 @@ public class PlayManager : MonoBehaviour
     [HideInInspector] public bool bIsGameOver = false;
     [HideInInspector] public bool bIsContinue = false;
 
-
+    public Transform spawnPos;
     [HideInInspector] public int reviveKeyCost = 1; // Initial cost to revive
     public ObjectPool<Coin> coinPool;
     public Coin coinPrefab; // Reference to the coin prefab
     private Dictionary<string, Coroutine> activeConsumables = new Dictionary<string, Coroutine>();
     private Dictionary<string, List<ConsumableBase>> activeConsumableInstances = new Dictionary<string, List<ConsumableBase>>();
+
+
+    void Awake()
+    {
+      //  if (Player.instance != null)
+            //Destroy(Player.instance.gameObject);
+      //  Instantiate(GameManager.Instance.selectedCharacter.characterPrefab, spawnPos);
+    }
+
     void Start()
     {
         coinPool = new ObjectPool<Coin>(coinPrefab, 65, 150);
+
+
         GlobalGameData.Key += 10;
         reviveKeyCost = 1;
         GameManager.Instance.TimeRan = 0f;
@@ -56,6 +67,7 @@ public class PlayManager : MonoBehaviour
         // bIsContinue = true;
         // Resume BGM
         // Close Continue popup from UI_Manager
+        bIsGameOver = false;
         UI_Manager.instance._PopupContinue.Close();
 
         StartCoroutine(ContinueCo());
@@ -78,12 +90,8 @@ public class PlayManager : MonoBehaviour
 
     public void GameOver(bool bShowContinuePopup = false)
     {
-        GameManager.Instance.CalcPerfomanceBonus();
-
-        GameManager.Instance.Save();
 
         bIsGameOver = true;
-
         // Pause BGM
         if (bShowContinuePopup)
         {
@@ -93,13 +101,19 @@ public class PlayManager : MonoBehaviour
         }
         else
         {
-            GameManager.Instance.LoadScene(Data.scene_result);
+            LoadResultScene();
         }
+    }
+    public void LoadResultScene()
+    {
+        GameManager.Instance.CalcPerfomanceBonus();
+        GameManager.Instance.SaveFinal();
+        GameManager.Instance.LoadScene(Data.scene_result);
     }
 
     private IEnumerator SaveProgressPeriodically()
     {
-        while (Application.IsPlaying(this))
+        while (!bIsGameOver)
         {
             yield return new WaitForSeconds(5); // Save progress every 30 seconds
             GameManager.Instance.Save();
