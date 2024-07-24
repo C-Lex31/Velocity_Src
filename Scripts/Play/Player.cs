@@ -13,8 +13,8 @@ using UnityEngine;
 public class Player : MonoBehaviour
 {
     public float moveSpeed;
-    public float jumpForce;
-    public float doubleJumpForce;
+    [SerializeField] private float jumpForce;
+    [SerializeField] private float doubleJumpForce;
     private Rigidbody rb;
 
     private Animator animator;
@@ -39,8 +39,8 @@ public class Player : MonoBehaviour
 
     private bool bIsGrounded;
     private bool bCeillingDetected;
-    private bool bWallDetected;
-    private bool bIsVaulting;
+    private bool bWallDetected = false;
+
     private Vector3 fp;   //First touch position
     private Vector3 lp;   //Last touch position
     private float dragDistance;  //minimum distance for a swipe to be registered
@@ -92,8 +92,10 @@ public class Player : MonoBehaviour
     [ReadOnly] public RopePoint currentAvailableRope;
     private float originalCharCenterY, originalCharHeight;
 
+    private bool bCancelJumpRequest;
     private float gravityModifier = 1;
-
+    [HideInInspector] public int jumpCount = 0;
+    [HideInInspector] public ParkourPickup currentParkourPickup;
 
     // Start is called before the first frame update
     void Start()
@@ -108,11 +110,13 @@ public class Player : MonoBehaviour
         originalCharCenterY = Capsule.center.y;
         originalCharHeight = Capsule.height;
 
+
     }
 
     // Update is called once per frame
     void Update()
     {
+
         if (bFlatlined) return;
         if (bIsGrabingRope && !bIsGrounded)
         {
@@ -147,13 +151,14 @@ public class Player : MonoBehaviour
 
         if (bIsGrounded)
         {
-            bCanDoubleJump = true;
+
+            bCanDoubleJump = false;
             gravityModifier = 1;
         }
         else
         {
             CheckBounds();
-            CheckRopeInZone(); //Only check for rope point when in air
+            //CheckRopeInZone(); //Only check for rope point when in air
         }
         UpdateAnimatorValues();
         CheckForSlideCancel();
@@ -169,21 +174,27 @@ public class Player : MonoBehaviour
             Vector3 gravity = globalGravity * gravityScale * gravityModifier * Vector3.up;
             rb.AddForce(gravity, ForceMode.Acceleration);
         }
+
+        if (!bIsGrounded && bCancelJumpRequest && transform.position.y >= 7f)
+        {
+            CancelJump();
+        }
         var finalPos = new Vector3(transform.position.x, transform.position.y, 0);
         transform.position = finalPos;    //keep the player stay 0 on Z axis
     }
     void UpdateAnimatorValues()
     {
-        animator.SetFloat("xVel", rb.velocity.x);
-        animator.SetFloat("yVel", rb.velocity.y);
-        animator.SetBool("bIsGrounded", bIsGrounded);
-        animator.SetBool("bCanDoubleJump", bCanDoubleJump);
-        animator.SetBool("bIsSliding", bIsSliding);
-        animator.SetBool("bIsGrabingRope", bIsGrabingRope);
+        animator.SetFloat(AnimatorParams.xVel, rb.velocity.x);
+        animator.SetFloat(AnimatorParams.yVel, rb.velocity.y);
+        animator.SetBool(AnimatorParams.bIsGrounded, bIsGrounded);
+        animator.SetBool(AnimatorParams.bCanJump, jumpCount < 2);
+        animator.SetBool(AnimatorParams.bIsSliding, bIsSliding);
+        animator.SetBool(AnimatorParams.bIsGrabingRope, bIsGrabingRope);
 
-        animator.SetBool("bWallHit", bWallDetected);
         if (rb.velocity.y < -20)
-            animator.SetBool("bCanRoll", true);
+        {
+            bCanRoll = true;
+        }
 
 
     }
@@ -216,8 +227,8 @@ public class Player : MonoBehaviour
     }
     void CheckBounds()
     {
-        if (transform.position.y + Capsule.height < Camera.main.ScreenToWorldPoint(new Vector3(0, 0, 10)).y)
-            HandleDeath();
+        //  if (transform.position.y + Capsule.height < Camera.main.ScreenToWorldPoint(new Vector3(0, 0, 10)).y)
+        //   HandleDeath();
     }
     void Flip()
     {
@@ -252,7 +263,7 @@ public class Player : MonoBehaviour
             bApplyGravity = false;
             rb.velocity = new Vector2(0, 0);
             rb.isKinematic = true;
-            ParticleManager.instance.PlayParticleEffect(ParticleList.teleport,new Vector2(transform.position.x,transform.position.y+1),Quaternion.identity);
+            ParticleManager.instance.PlayParticleEffect(ParticleList.teleport, new Vector2(transform.position.x, transform.position.y + 1), Quaternion.identity);
             gameObject.SetActive(false);
         }
         else
@@ -273,11 +284,32 @@ public class Player : MonoBehaviour
         // bWallDetected = Physics.BoxCast(wallCheck.position, wallCheckSize, Vector3.forward, Quaternion.identity, 10, whatIsGround);
 
         if (Physics.SphereCast(transform.position + Vector3.up * (Capsule.height / lowCheckOffset), 0.12f, Vector3.right, out hit, 0.45f, whatIsGround))
-
             bWallDetected = Physics.SphereCast(transform.position + Vector3.up * (Capsule.height * highCheckOffset), 0.12f, Vector3.right, out hit, 0.45f, whatIsGround);
 
-
+        if (!bIsGrounded)
+        {
+            bWasInAir = true;
+        }
+        else if (bWasInAir && bIsGrounded)
+        {
+            OnLand();
+            bWasInAir = false;
+        }
     }
+
+    void OnLand()
+    {
+        jumpCount = 0;
+        if (bCanRoll)
+        {
+            animator.CrossFade(AnimatorParams.Roll, 0f);
+            bCanRoll = false;
+        }
+        else
+            animator.CrossFade(AnimatorParams.Land, 0f);
+    }
+
+
     private void CheckForSlideCancel()
     {
         if (slideTimeCounter < 0 || !bIsGrounded)
@@ -322,11 +354,11 @@ public class Player : MonoBehaviour
                         {   //Up swipe
                             Debug.Log("Up Swipe");
                             if (bIsGrounded)
-                                Jump(jumpForce);
+                                DoJump(jumpForce);
                             else if (bCanDoubleJump)
                             {
                                 bCanDoubleJump = false;
-                                Jump(doubleJumpForce);
+                                DoJump(doubleJumpForce);
                             }
                         }
                         else
@@ -358,41 +390,60 @@ public class Player : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Space))
         {
             RollEnd();
-            if (bIsGrounded)
-                Jump(jumpForce);
-            else if (bCanDoubleJump)
+            if(currentParkourPickup != null && climbingState == ClimbingState.None && bIsGrounded && !bIsSliding&&!bFlatlined)
             {
-                bCanDoubleJump = false;
-                Jump(doubleJumpForce);
+                currentParkourPickup.ActivateParkour();
+                return;
             }
+            PerformJump();
+            
         }
 
         if (Input.GetKeyDown(KeyCode.S))
         {
-            // if (bIsGrounded)
-            OnSlideStart();
-            CancelJump();
+            if (bIsGrounded)
+                OnSlideStart();
+            else
+
+            {
+                bCancelJumpRequest = true;
+                bCanDoubleJump = false;
+            }
         }
     }
-    void Jump(float force = -1)
+    void PerformJump()
+
+    {
+        if (jumpCount < 1 && bIsGrounded)
+        {
+            jumpCount++;
+            DoJump(jumpForce);
+        }
+        else if (jumpCount < 2)
+        {
+            jumpCount++;
+            DoJump(doubleJumpForce);
+            animator.CrossFade(AnimatorParams.DoubleJump, 0.2f);
+        }
+
+    }
+    public void DoJump(float force = -1)
     {
         if (climbingState == ClimbingState.ClimbingLedge)      //stop move when climbing
             return;
 
         if (bIsSliding) OnSlideEnd();
 
-        // float targetVelocityY = Mathf.Sqrt(2 * Mathf.Abs(force) * Mathf.Abs(globalGravity));
-        float targetVelocityY = Mathf.Sqrt(2 * Mathf.Abs(jumpForce) * Mathf.Abs(globalGravity));
-
+        float targetVelocityY = Mathf.Sqrt(2 * Mathf.Abs(force) * Mathf.Abs(globalGravity));
+        animator.SetTrigger(AnimatorParams.Jump);
         // Ensure the jump direction is correct based on jumpForce
-        if (jumpForce < 0)
+        if (force < 0)
             targetVelocityY = -targetVelocityY;
         rb.velocity = new Vector3(rb.velocity.x, targetVelocityY, 0);
-        //if (rb)
-        // rb.velocity = new Vector2(rb.velocity.x, force);
-        //  rb.velocity = new Vector3(rb.velocity.x, Mathf.Lerp(rb.velocity.y, targetVelocityY, Time.deltaTime * 1f), rb.velocity.z);
+        animator.SetTrigger(AnimatorParams.Jump);
 
     }
+
     void OnSlideStart()
     {
         // if (slideCooldownCounter > 0) return;
@@ -451,6 +502,7 @@ public class Player : MonoBehaviour
     }
     void CancelJump()
     {
+        bCancelJumpRequest = false;
         gravityModifier = 6;
     }
 
@@ -524,6 +576,9 @@ public class Player : MonoBehaviour
 
     RaycastHit hitVertical;
     RaycastHit hitHorizontal;
+    private bool bWasInAir;
+    private bool bCanRoll;
+
     bool CheckLedge()       //check higher ledge
     {
 
@@ -537,7 +592,6 @@ public class Player : MonoBehaviour
 
                 ledgeTarget = hitVertical.transform;
                 ledgePoint = new Vector3(hitHorizontal.point.x, hitVertical.point.y, transform.position.z);
-                //   velocity = Vector2.zero;
                 rb.velocity = Vector3.zero;
                 Capsule.enabled = false;
                 rb.isKinematic = true;
@@ -568,12 +622,13 @@ public class Player : MonoBehaviour
         rb.isKinematic = true;
         bApplyGravity = false;
         animator.applyRootMotion = true;
-        //Debug.Log("LedgeCimb");
         climbingState = ClimbingState.ClimbingLedge;
         if (lowClimb)
-            animator.SetBool("bLowLedgeClimb", true);
+            animator.CrossFade(AnimatorParams.LowLedgeClimb, 0.1f);
+        //  animator.SetBool("bLowLedgeClimb", true);
         else
-            animator.SetBool("bLedgeClimb", true);
+            animator.CrossFade(AnimatorParams.LedgeClimb, 0.1f);
+        // animator.SetBool("bLedgeClimb", true);
 
         UpdateAnimatorValues();
 
@@ -598,7 +653,7 @@ public class Player : MonoBehaviour
         animator.SetBool("bLowLedgeClimb", false);
         ledgeTarget = null;
     }
-    void CheckRopeInZone()
+    /*void CheckRopeInZone()
     {
         if (bIsGrabingRope)
             return;
@@ -653,7 +708,7 @@ public class Player : MonoBehaviour
 
             currentAvailableRope = null;
         }
-    }
+    }*/
 
     public void GrabRope()
     {
@@ -677,6 +732,7 @@ public class Player : MonoBehaviour
             lastRopePointObj = currentAvailableRope;
             bIsGrabingRope = true;
             // SoundManager.PlaySfx(soundGrap);
+            animator.CrossFade(AnimatorParams.RopeGrab, 0.15f);
             float distance = Vector2.Distance(transform.position, currentAvailableRope.transform.position);
             releasePointY = currentAvailableRope.transform.position.y - distance / 10f;
         }
@@ -699,6 +755,7 @@ public class Player : MonoBehaviour
         Time.timeScale = 1;
         //  SoundManager.PlaySfx(soundRopeJump);
         bIsGrabingRope = false;
+        currentAvailableRope = null;
     }
 
     public void TriggerParkourAnimation(AnimationClip animClip, float transitionTime = 0.2f, bool bScaleCapsule = false)
@@ -730,13 +787,8 @@ public class Player : MonoBehaviour
         // Gizmos.DrawRay(new Vector3(transform.position.x, hitVertical.point.y - 0.1f, verticalChecker.position.z), Vector3.right * 2);
         // Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y + ceillingCheckDistance));
         // Gizmos.DrawWireCube(wallCheck.position, wallCheckSize);
-        //        Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height / lowCheckOffset) + Vector3.right * 0.45f, 0.18f);
+        //  Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height / lowCheckOffset) + Vector3.right * 0.45f, 0.18f);
         //Gizmos.DrawSphere(transform.position + Vector3.up * (Capsule.height * highCheckOffset) + Vector3.right * 0.45f, 0.18f);
-
-
-
-
-
 
     }
 
